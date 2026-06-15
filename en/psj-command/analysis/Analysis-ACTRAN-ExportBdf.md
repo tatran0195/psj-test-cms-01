@@ -18,7 +18,7 @@ Ribbon: <menuselection>Analysis &#187; ACTRAN &#187; ExportBdf</menuselection>
 
 this is a line.
 this is another line.
-
+![image.png](/en/v5.2.0/assets/img-1781511631862.png)
 ## Inputs
 
 ### `strPath`
