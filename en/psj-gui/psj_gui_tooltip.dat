@@ -1,0 +1,1158 @@
+Name: dlg.add_1delement_selector
+Desc: Add "1D element" to the selection list, allowing user to select 1D elements and store the selected 1D elements to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_2delement_selector
+Desc: Add "Element" to the selection list, allowing user to select 2D elements and store the selected 2D elements to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_3delement_selector
+Desc: Add "Solid element" to the selection list, allowing user to select solid elements and store the selected solid elements to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_barpart_selector
+Desc: Add "Bar" to the selection list, allowing user to select bar parts and store the selected bar parts to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_browser
+Desc: Add a file/folder browser component to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: mode
+- A String specifying the browser type:
+  - "file": allowing user to select a file/files.
+  - "folder": allowing user to select a folder/folders.
+- The default value is "file".
+Arg3: filefilter
+- A String specifying the format of the selectable file/files with type (*.extension).
+  - For example: All Files (*.*), Abaqus (*.inp)
+- The default value is "".
+Arg4: default
+- A String specifying the default text which will be shown on the textbox of this component.
+- The default value is "".
+Arg5: multisel
+- A Boolean specifying the possibility of the multiple selection:
+  - True: allow user to select multiple files/folders at the same time.
+  - False: allow user to select only one file/folder at a time.
+- The default value is False.
+Arg6: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_button
+Desc: Add a button to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text which will be displayed on the button.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the button.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the button.
+- The default value is 0.
+Arg5: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_checkbox
+Desc: Add a checkbox to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text which will be displayed next to the checkbox.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the checkbox.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the checkbox.
+- The default value is 0.
+Arg5: checked
+- A Boolean specifying the default state of this component:
+  - True: the default state of this component is checked.
+  - False: the default state of this component is unchecked.
+- The default value is False.
+Arg6: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_combobox_option
+Desc: Add an option to the combobox component
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: optiontext
+- A String specifying the option added.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_combobox
+Desc: Add a combobox component to the dialog
+Arg1: name
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: options
+- A List of String specifying the options of the combobox.
+- The default value is [].
+Arg3: width
+- An Integer specifying the width of the combobox.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the combobox.
+- The default value is 0.
+Arg5: layout
+- A String specifying the layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_condition_selector
+Desc: Add "Condition" to the selection list, allowing user to select condition and store the condition to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_coordinate_selector
+Desc: Add "Coordinate" to the selection list, allowing user to select coordinate and store the coordinate to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_edge_selector
+Desc: Add "Edge" to the selection list, allowing user to select edges and store the selected edges to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_elementedge_selector
+Desc: Add "Elem edge" to the selection list, allowing user to select element edges and store the selected element edges to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_face_selector
+Desc: Add "Face" to the selection list, allowing user to select faces and store the selected faces to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_groupbox
+Desc: Add a groupbox to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: width
+- An Integer specifying the width of the groupbox.
+- The default value is 0.
+Arg3: height
+- An Integer specifying the height of the groupbox.
+- The default value is 0.
+Arg4: text
+- A String specifying text which will be displayed.
+- The default value is "".
+Arg5: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_group_selector
+Desc: Add "Group" to the selection list, allowing user to select group and store the group to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_hlayout
+Desc: Add a horizontal layout to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: margin
+- A List specifying all the value defining the positions of the creating layout.
+- The default value is [].
+Arg3: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_imagectrl
+Desc: Add a frame to put an image to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: imagefile
+- A String specifying the location of an image to display as default.
+- This is a required input.
+Arg3: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_label
+Desc: Add a label to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text which will be displayed.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the label.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the label.
+- The default value is 0.
+Arg5: texthalign
+- A String specifying the alignment in horizontal direction:
+  - "left": align the showing text to the left in the horizontal direction.
+  - "center": align the showing text to the center in the horizontal direction.
+  - "right": align the showing text to the right in the horizontal direction.
+- The default value is "left".
+Arg6: textvalign
+- A String specifying the alignment in vertical direction:
+  - "top": align the showing text to the top in the vertical direction.
+  - "middle": align the showing text to the middle in the vertical direction.
+  - "bottom": align the showing text to the bottom in the vertical direction.
+- The default value is "top".
+Arg7: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_layout
+Desc: Add a layout to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: orientation
+- An Orientation object specifying the arrangement direction of inside components:
+  - orientation.horizontal: all components inside are arranged horizontally.
+  - orientation.vertical: all components inside are arranged vertically.
+- This is a required input.
+Arg3: margin
+- A List specifying all the value defining the positions of the creating layout.
+- The default value is [].
+Arg4: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_listbox
+Desc: Add a listbox to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: multisel
+- A Boolean specifying the permission that allow user to select multiple values at the same time:
+  - True: user can select multiple values.
+  - False: user can select only one value per time.
+- The default value is False.
+Arg3: options
+- A List of String specifying all the options of the listbox component.
+- The default value is [].
+Arg4: width
+- An Integer specifying the width of the listbox.
+- The default value is 0.
+Arg5: height
+- An Integer specifying the height of the listbox.
+- The default value is 0.
+Arg6: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_listbox_option
+Desc: Add an option to the listbox component
+Arg1: listboxname
+- A String specifying the name of the listbox component.
+- This is a required input.
+Arg2: optiontext
+- A String specifying the option added.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_node_selector
+Desc: Add "Node" to the selection list, allowing user to select nodes and store the selected nodes to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_pagesctrl
+Desc: Add a wizard type to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: showheader
+- A Boolean specifying the state of the PageItem's header:
+  - True: PageItem's header will be shown.
+  - False: PageItem's header will be hidden.
+- The default value is True.
+Arg3: currentpage
+- An Integer specifying the PageItem shown by default (starts from 0).
+- The default value is 0.
+Arg4: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_pageitem
+Desc: Add a new page to the created/selected PagesCtrl
+Arg1: pagesctrlname
+- A String specifying the name of the created PagesCtrl component.
+- This is a required input.
+Arg2: pagename
+- A String specifying the name of the created component.
+- This is a required input.
+Arg3: pageheader
+- A String specifying text which will be displayed as page header.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_part_selector
+Desc: Add "Part" to the selection list, allowing user to select parts and store the selected parts to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_radiobutton
+Desc: Add a radio button to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text which will be displayed.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the radio button.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the radio button.
+- The default value is 0.
+Arg5: checked
+- A Boolean specifying the default state of this component:
+  - True: the default state of this component is checked.
+  - False: the default state of this component is unchecked.
+- The default value is False.
+Arg6: group
+- A Boolean specifying the group in which this radio button will be added to:
+  - True: creating radio button will be added separately from the previous radio button (different group of button). So, at the time selecting the creating radio button, the selected radio button will not be deselected.
+  - False: creating radio button will be added to the same group with previous radio button. So, at the time selecting the creating radio button, the selected radio button will be deselected.
+- The default value is False.
+Arg7: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_richeditbox
+Desc: Add a rich edit box to the dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text displayed by default.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the rich edit box.
+- The default value is 60.
+Arg4: height
+- An Integer specifying the height of the rich edit box.
+- The default value is 22.
+Arg5: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_separator
+Desc: Add a separator to the creating dialog
+Arg1: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_slider
+Desc: Add a slider to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: width
+- An Integer specifying the width of the slider bar.
+- The default value is 60.
+Arg3: height
+- An Integer specifying the height of the slider bar.
+- The default value is 22.
+Arg4: min
+- An Integer specifying the minimum value of the slider bar.
+- The default value is 0.
+Arg5: max
+- An Integer specifying the maximum value of the slider bar.
+- The default value is 100.
+Arg6: pos
+- An Integer specifying the initial position of the scroller.
+- The default value is 0.
+Arg7: vertical
+- A Boolean specifying the direction of the slider bar:
+  - True: creating slider bar will be put in the vertical direction.
+  - False: creating slider bar will be put in the horizontal direction.
+- The default value is False.
+Arg8: showticks
+- A Boolean specifying the state of the slider's tick mark:
+  - True: show all the tick mark.
+  - False: hide all the tick mark.
+- The default value is True.
+Arg9: showborder
+- A Boolean specifying the state of the slider's border:
+  - True: show outside border of the creating slider bar.
+  - False: hide outside border of the creating slider bar.
+- The default value is False.
+Arg10: showbothticks
+- A Boolean specifying the way to display tick mark:
+  - True: show tick mark on both side of the slider bar.
+  - False: show tick mark on one side only of the slider bar.
+- The default value is False.
+Arg11: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_space
+Desc: Add a space between the created components
+Arg1: name
+- A String specifying the name of the created component.
+- The default value is "".
+Arg2: orientation
+- A String specifying the direction to add a space component between 2 components:
+  - "horizontal": Add a space component on the horizontal direction.
+  - "vertical": Add a space component on the vertical direction.
+- The default value is "".
+Arg3: size
+- An Integer specifying the size of space.
+- The default value is 0.
+Arg4: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_spin
+Desc: Add a spin to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_table
+Desc: Add a table to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- The default value is "".
+Arg2: menus
+- A List of String specifying the context menu options (right mouse click):
+  - "clear": clear all the existing data.
+  - "cut": cut the content of the selected cell.
+  - "copy": copy the content of the selected cell.
+  - "paste": paste a value/values which has been copied/cut to a selected cell/select cells.
+  - "insert row": insert a single row to the bottom of the selected cell.
+  - "delete row": delete a selected row/selected rows.
+  - "from file": load the data from csv file into the table.
+  - "to file": export the data from the table to a specific csv file.
+- The default value is [].
+Arg3: width
+- An Integer specifying the width of the table.
+- The default value is 260.
+Arg4: height
+- An Integer specifying the height of the table.
+- The default value is 260.
+Arg5: showgridline
+- A Boolean specifying the display state of grid lines:
+  - True: show table grid lines.
+  - False: hide table grid lines.
+- The default value is True.
+Arg6: showlinenumber
+- A Boolean specifying the display state of row number:
+  - True: show row number.
+  - False: hide row number.
+- The default value is True.
+Arg7: columns
+- A List of String specifying the number of columns and heading of each column.
+- This is a required input.
+Arg8: rows
+- An Integer specifying the number of rows.
+- This is a required input.
+Arg9: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_table_right_menu
+Desc: Add options to the context menu (Right click event)
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: menus
+- A List of String specifying the menus which will be appeared after executing the right click button event on the table.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_tabwnd
+Desc: Add a tab window to the creating dialog
+Arg1: name
+- A String specifying the name of the tab window component.
+- This is a required input.
+Arg2: width
+- An Integer specifying the width of the window.
+- The default value is 60.
+Arg3: height
+- An Integer specifying the height of the window.
+- The default value is 22.
+Arg4: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_tabwnd_page
+Desc: Add a page to the TabCtrl component
+Arg1: name
+- A String specifying the name of the TabCtrl component in which the creating TabItem will be put added to.
+- This is a required input.
+Arg2: pagename
+- A String specifying the name of the created component.
+- This is a required input.
+Arg3: pagetext
+- A String specifying text which will be displayed as a title.
+- The default value is "".
+Arg4: pageorientation
+- A String specifying the orientation of the creating tab page. It has 2 options:
+  - "vertical": aligning all the inside components in the vertical direction.
+  - "horizontal": aligning all the inside components in the horizontal direction.
+- The default value is "vertical".
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_textbox
+Desc: Add a textbox to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: text
+- A String specifying text which will be displayed.
+- The default value is "".
+Arg3: width
+- An Integer specifying the width of the text box.
+- The default value is 0.
+Arg4: height
+- An Integer specifying the height of the text box.
+- The default value is 0.
+Arg5: type
+- A String specifying the data type for the textbox:
+  - "string": inputing values are in the string format.
+  - "double": inputing values are in the double format.
+  - "integer": inputing values are in the integer format.
+- The default value is "string".
+Arg6: layout
+- A String specifying the created layout name
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_vertex_selector
+Desc: Add "Vertex" to the selection list, allowing user to select vertexes and store the selected vertexes to the selection list
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.add_vlayout
+Desc: Add a vertical layout to the creating dialog
+Arg1: name
+- A String specifying the name of the created component.
+- This is a required input.
+Arg2: margin
+- A List specifying all the value defining the positions of the creating layout.
+- The default value is [].
+Arg3: layout
+- A String specifying the created layout name.
+  The created layout can be a GroupBox component, Layout component, etc.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.disable_item
+Desc: Change the "Enable" option of an inputted component to off (Disabled)
+Arg1: name
+- A String specifying the name of the component.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.enable_item
+Desc: Change the "Enable" option of an inputted component to on (Enabled)
+Arg1: name
+- A String specifying the name of the component.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.generate_window
+Desc: Execute the created dialog (show the dialog with all the created functions)
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.get_cell_value
+Desc: Get value of a specific cell
+Arg1: tablename
+- A String specifying the name of the table component.
+- This is a required input.
+Arg2: cellrowid
+- An Integer specifying the position in the horizontal direction of the cell (starts from 0).
+- This is a required input.
+Arg3: cellcolumnid
+- An Integer specifying the position in the vertical direction of the cell (starts from 0).
+- This is a required input.
+Return:
+- A String specifying the value of the inputted cell.
+------------------------------------------------------------
+Name: dlg.get_combobox_option
+Desc: Get the string value of the being selected combobox option
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: index
+- A Integer specifying the order of the combobox component's values.
+- This is a required input.
+Return:
+A String specifying the being selected combobox option.
+------------------------------------------------------------
+Name: dlg.get_combobox_sel
+Desc: Get the index of the being selected combobox option
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Return:
+An Integer specifying the index of the being selected combobox option.
+------------------------------------------------------------
+Name: dlg.get_item_text
+Desc: Get text inside the component
+Arg1: name
+- A String specifying the name of the component which user want to get text.
+- This is a required input.
+Return:
+A String specifying the text inside the component.
+------------------------------------------------------------
+Name: dlg.get_len_combobox
+Desc: Get the size (number of items) of the combobox
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Return:
+An Integer specifying the size of the combobox component.
+------------------------------------------------------------
+Name: dlg.get_len_listbox
+Desc: Get the size (number of items) of the listbox
+Arg1: name
+- A String specifying the name of the listbox component.
+- This is a required input.
+Return:
+An Integer specifying the size of the listbox component.
+------------------------------------------------------------
+Name: dlg.get_listbox_option
+Desc: Get the string value of the being selected listbox option
+Arg1: name
+- A String specifying the name of the listbox component.
+- This is a required input.
+Arg2: optionindex
+- A Integer specifying the order of the listbox component's values.
+- This is a required input.
+Return:
+A String specifying the being selected listbox option.
+------------------------------------------------------------
+Name: dlg.get_listbox_sel
+Desc: Get the index of the selecting listbox option
+Arg1: name
+- A String specifying the name of the listbox component.
+- This is a required input.
+Return:
+An Integer specifying the index of the being selected listbox option.
+------------------------------------------------------------
+Name: dlg.get_table_column_width
+Desc: Get the width of the specified column of an inputted table
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: col
+- An Integer specifying the order of the column (starts from 0).
+- This is a required input.
+Return:
+An Integer specifying the width value of the specified cell of the inputted table.
+------------------------------------------------------------
+Name: dlg.get_table_sel_cell
+Desc: Get the position (Row, column) of the selected cell
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Return:
+- A TableCellID object specifying the location of cell in table:
+  - TableCellID.row_number returns row number of the cell
+  - TableCellID.col_number returns column number of the cell
+------------------------------------------------------------
+Name: dlg.get_tabwnd_current_page
+Desc: Get the selecting page of the inputted TabCtrl
+Arg1: name
+- A String specifying the name of the TabCtrl component using for getting selected page order.
+- This is a required input.
+Return:
+An Integer specifying the order of the selected page of the inputted TabCtrl.
+------------------------------------------------------------
+Name: dlg.get_total_column
+Desc: Get the total number of columns of the table
+Arg1: name
+- A String specifying the name of the table component.
+- This is a required input.
+Return:
+An Integer specifying the total number of columns of the table.
+------------------------------------------------------------
+Name: dlg.get_total_row
+Desc: Get the total number of rows of the table
+Arg1: name
+- A String specifying the name of the table component.
+- This is a required input.
+Return:
+An Integer specifying the total number of rows of the table.
+------------------------------------------------------------
+Name: dlg.hide_layout
+Desc: Hide the layout and all of its children components inside
+Arg1: name
+- A String specifying the name of the layout component.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.insert_combobox_option
+Desc: Insert an option to a specific position of the combobox component
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: position
+- An Integer specifying the position in combobox to put the new option.
+- This is a required input.
+Arg3: option
+- A String specifying the text which will be used as a combobox option.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.insert_combobox_options
+Desc: Insert multiple options to a specific position of the inputted combobox component
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: position
+- An Integer specifying the position in combobox to put the new options.
+- This is a required input.
+Arg3: options
+- A List of String specifying the new options.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.insert_listbox_option
+Desc: Insert an option to a specific position of the inputted listbox
+Arg1: listboxname
+- A String specifying the name of the listbox component.
+- This is a required input.
+Arg2: position
+- An Integer specifying the position in listbox to put the new option.
+- This is a required input.
+Arg3: option
+- A String specifying the text which will be used as a listbox option.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.insert_listbox_options
+Desc: Insert multiple options to a specific position of the listbox component
+Arg1: listboxname
+- A String specifying the name of the listbox component.
+- This is a required input.
+Arg2: position
+- An Integer specifying the position in listbox to put the new options.
+- This is a required input.
+Arg3: options
+- A List of String specifying the new options.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.isbutton_checked
+Desc: Check the status of the inputted component whether it's checked or not. Currently supporting checkbox and radio button components
+Arg1: name
+- A String specifying the name of the component using for checking the status of selection.
+- This is a required input.
+Return:
+- A Boolean specifying the status of the inputted component:
+  - True: The inputted component is checked (Selected)
+  - False: The inputted component is unchecked (Unselected)
+------------------------------------------------------------
+Name: dlg.on_active_tab_page
+Desc: Bind a created function after a tab page is selected
+Arg1: name
+- A String specifying the name of TabCtrl.
+- This is a required input.
+Arg2: callfunc
+- The name of the function wants to be bound to.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.on_command
+Desc: Bind a created def function to a component
+Arg1: name
+- A String specifying the name of the component using for binding a created def function.
+- This is a required input.
+Arg2: callfunc
+- The name of the function wants to be bound to.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.on_table_right_menu
+Desc: Set event when openning/executing context menu
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: callfunc
+- A String specifying the created def function.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.on_table_sel_changed
+Desc: Set event when selecting a cell
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: callfunc
+- A String specifying the created def function.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_cell_value
+Desc: Set a value for a specific cell
+Arg1: tablename
+- A String specifying the name of the table component.
+- This is a required input.
+Arg2: cellrowid
+- An Integer specifying the position in the horizontal direction of the cell (starts from 0).
+- This is a required input.
+Arg3: cellcolumnid
+- An Integer specifying the position in the vertical direction of the cell (starts from 0).
+- This is a required input.
+Arg4: value
+- A String specifying the text which will be displayed on the selected cell.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_checkbox_state
+Desc: Set the state of the checkbox to checked or unchecked
+Arg1: name
+- A String specifying the name of the component in which will be used for setting the state to checked/unchecked.
+- This is a required input.
+Arg2: checked
+- A Boolean specifying the state of the checkbox:
+  - True: The initial state of the checkbox component is checked.
+  - False: The initial state of the checkbox component is unchecked.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_combobox_sel
+Desc: Set current selection to the combobox component
+Arg1: comboboxname
+- A String specifying the name of the combobox component.
+- This is a required input.
+Arg2: option
+- An Integer or String specifying the order of the combobox component's values or the name of selected item.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_groupbox_checked
+Desc: Set the initial state of the GroupBox's checkbox to show/hide. In case of showing, the initial state of the checkbox is checked
+Arg1: name
+- A String specifying the name of the component in which will be used for setting the state of its checkbox to show/hide.
+- This is a required input.
+Arg2: checked
+- A Boolean specifying the state of the GroupBox:
+  - True: Show the checkbox of the GroupBox component with its state is checked.
+  - False: Hide the checkbox of the GroupBox component.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_groupbox_collapsed
+Desc: Set the initial state of the GroupBox's collapsable icon to show/hide
+Arg1: name
+- A String specifying the name of the component in which will be used for setting the state of its collapsable icon to show/hide.
+- This is a required input.
+Arg2: collapsed
+- A Boolean specifying the state of the GroupBox:
+  - True: Show the collapsable icon of the GroupBox component with its state is collapsed.
+  - False: Hide the collapsable icon of the GroupBox component and show all of it inside components.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_groupbox_orientation
+Desc: Set the layout of all the components inside the inputted groupbox component to be aligned in the horizontal or vertical direction
+Arg1: name
+- A String specifying the name of the component using for setting the orientation option.
+- This is a required input.
+Arg2: orientation
+- A String specifying the orientation option of the GroupBox:
+  - "vertical": align all the inside components in the vertical direction.
+  - "horizontal": align all the inside components in the horizontal direction.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_icon_file
+Desc: Set icon for the creating GUI
+Arg1: file
+- A String specifying the full path of the icon file using to set the icon for the creating GUI dialog.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_image_file
+Desc: Set an image location to the ImageCtrl
+Arg1: name
+- A String specifying the name of the ImageCtrl component.
+- This is a required input.
+Arg2: imagepath
+- A String specifying the full path of the image.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_item_text
+Desc: Set the text which will be shown inside the component
+Arg1: name
+- A String specifying the name of the component.
+- This is a required input.
+Arg2: text
+- A String specifying the content displayed.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_listbox_sel
+Desc: Set current selection to the listbox component
+Arg1: listboxname
+- A String specifying the name of the listbox component.
+- This is a required input.
+Arg2: option
+- An Integer or String specifying the order of the listbox component's values or the name of selected item.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_pagesctrl_current_page
+Desc: Set current displayed PageItem in PagesCtrl
+Arg1: pagesctrlname
+- A String specifying the name the PagesCtrl.
+- This is a required input.
+Arg2: pageindex
+- An Integer specifying the index position of the PageItem (starts from 0).
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_radiobutton_state
+Desc: Set the state of the radio button to checked or unchecked
+Arg1: name
+- A String specifying the name of the component in which will be used for setting the state to selected/unselected.
+- This is a required input.
+Arg2: checked
+- A Boolean specifying the state of the checkbox:
+  - True: The initial state of the checkbox component is checked.
+  - False: The initial state of the checkbox component is unchecked.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_slider_bothtics
+Desc: Show tick marks on both/one side of the slider
+Arg1: name
+- A String specifying the name of the slider.
+- This is a required input.
+Arg2: enabled
+- A Boolean specifying the way to display tick mark:
+  - True: show tick mark on both side of the slider bar.
+  - False: show tick mark only on one side of the slider bar.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_slider_show_border
+Desc: Show border of the slider
+Arg1: name
+- A String specifying the name of the slider.
+- This is a required input.
+Arg2: enabled
+- A Boolean specifying the state of the slider's border:
+  - True: show outside border of the creating slider bar.
+  - False: hide outside border of the creating slider bar.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_slider_show_tics
+Desc: Show tick marks of the slider
+Arg1: name
+- A String specifying the name of the slider.
+- This is a required input.
+Arg2: enabled
+- A Boolean specifying the state of the slider's tick mark:
+  - True: show all the tick mark.
+  - False: hide all the tick mark.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_slider_vertical
+Desc: Show the slider in the vertical or horizontal direction
+Arg1: name
+- A String specifying the name of the slider.
+- This is a required input.
+Arg2: enabled
+- A Boolean specifying the direction of the slider bar:
+  - True: creating slider bar will be put in the vertical direction.
+  - False: creating slider bar will be put in the horizontal direction.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_table_cell_fill_color
+Desc: Set color to the selected/specified cells
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: cell
+- A TableCellID object specifying the location of cell in table:
+  - TableCellID(row, col) defines a cell object.
+  - TableCellID.row_number returns row number of the cell.
+  - TableCellID.col_number returns column number of the cell.
+- If not specified, all the selected cells will be used.
+Arg3: color
+- An Integer specifying the color.
+- If not specified, a color picker dialog is opened for user to select.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_table_cell_text_color
+Desc: Set text's color to the selected/specified cells
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: cell
+- A TableCellID object specifying the location of cell in table:
+  - TableCellID(row, col) defines a cell object.
+  - TableCellID.row_number returns row number of the cell.
+  - TableCellID.col_number returns column number of the cell.
+- If not specified, all the selected cells will be used.
+Arg3: color
+- An Integer specifying the color.
+- If not specified, a color picker dialog is opened for user to select.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_table_column_width
+Desc: Get the width of the specified column of an inputted table
+Arg1: tablename
+- A String specifying the name of table.
+- This is a required input.
+Arg2: col
+- An Integer specifying the order of the column where its width will be changed (starts from 0).
+- This is a required input.
+Arg3: width
+- An Integer specifying the column width.
+- If not specified, a dialog is opened for user to enter a value.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.set_tabwnd_current_page
+Desc: Set the current page of the TabCtrl to a specific TabItem order
+Arg1: name
+- A String specifying the name of the TabCtrl component using for setting the current page.
+- This is a required input.
+Arg2: pageindex
+- An Integer specifying the tab order.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.show_layout
+Desc: Show the layout and all the children components inside
+Arg1: name
+- A String specifying the name of the layout component using for showing along with all of its inside components.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
+Name: dlg.show_tooltip
+Desc: Show tooltip when user hover the mouse to a UI component
+Arg1: name
+- A String specifying name of the UI component.
+- This is a required input.
+Arg2: tip
+- A String specifying text appears when mouse hovers.
+- This is a required input.
+Return:
+This function does not have output value.
+------------------------------------------------------------
