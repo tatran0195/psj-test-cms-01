@@ -20,8 +20,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 
   // REAL GITHUB OAUTH FLOW
-  const redirectUri = `${new URL(request.url).origin}/auth/github/callback`;
-  const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=repo`;
+  // Omit redirect_uri to let GitHub use the one configured in the OAuth App settings,
+  // preventing "redirect_uri mismatch" errors when testing on different origins (e.g., localhost vs 127.0.0.1)
+  const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=repo`;
   
   return redirect(url);
 }
