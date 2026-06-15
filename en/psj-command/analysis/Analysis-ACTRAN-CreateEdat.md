@@ -5,7 +5,7 @@ author: TechnoStar Co., Ltd.
 authorURL: https://www.e-technostar.com/
 description: Export edat file.
 ---
-edit
+edit waka
 ## Description
 
 Export edat file.
