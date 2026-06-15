@@ -2,6 +2,7 @@ import React from "react";
 import { Command } from "cmdk";
 import { Search, FileText, ChevronRight } from "lucide-react";
 import { useNavigate } from "react-router";
+import Fuse from "fuse.js";
 
 interface SearchCommandProps {
   open: boolean;
@@ -12,10 +13,25 @@ interface SearchCommandProps {
   isLoading: boolean;
   branch: string;
   locale: string;
+  treeList?: any[];
 }
 
-export function SearchCommand({ open, onOpenChange, searchQuery, setSearchQuery, searchResults, isLoading, branch, locale }: SearchCommandProps) {
+export function SearchCommand({ open, onOpenChange, searchQuery, setSearchQuery, searchResults, isLoading, branch, locale, treeList = [] }: SearchCommandProps) {
   const navigate = useNavigate();
+
+  const fuse = React.useMemo(() => {
+    return new Fuse(treeList, {
+      keys: ['title', 'path'],
+      threshold: 0.3,
+    });
+  }, [treeList]);
+
+  const displayResults = React.useMemo(() => {
+    if (searchQuery.length > 1 && searchResults.length === 0 && !isLoading) {
+      return fuse.search(searchQuery).map(res => res.item);
+    }
+    return searchResults;
+  }, [searchQuery, searchResults, isLoading, fuse]);
 
   if (!open) return null;
 
@@ -36,10 +52,10 @@ export function SearchCommand({ open, onOpenChange, searchQuery, setSearchQuery,
           </div>
           <Command.List className="cmdk-list">
             {isLoading && <div className="cmdk-empty">Searching...</div>}
-            {searchQuery.length > 1 && searchResults.length === 0 && !isLoading && (
+            {searchQuery.length > 1 && displayResults.length === 0 && !isLoading && (
               <Command.Empty className="cmdk-empty">No results found for "{searchQuery}"</Command.Empty>
             )}
-            {searchResults.map((res: any, idx: number) => {
+            {displayResults.map((res: any, idx: number) => {
               const fm = res.frontmatter ? JSON.parse(res.frontmatter) : { title: "" };
               const cleanPath = res.path.substring(locale.length + 1);
               const anchor = res.heading_id ? `#${res.heading_id}` : "";

@@ -9,6 +9,7 @@ import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import remarkRehype from "remark-rehype";
+import remarkBreaks from "remark-breaks";
 import rehypeKatex from "rehype-katex";
 import rehypeSlug from "rehype-slug";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
@@ -62,6 +63,13 @@ db.exec(`
   );
 `);
 
+// Performance indexes for recursive CTE tree-walk
+db.exec(`
+  CREATE INDEX IF NOT EXISTS idx_tree_entries_version ON tree_entries(version);
+  CREATE INDEX IF NOT EXISTS idx_trees_parent ON trees(parent);
+  CREATE INDEX IF NOT EXISTS idx_tree_entries_path ON tree_entries(path);
+`);
+
 function computeHash(content: string | Buffer) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
@@ -72,11 +80,12 @@ function generateCommitId() {
 
 function remarkExtractToc() {
   return (tree: any, file: any) => {
+    const slugger = new GithubSlugger();
     const toc: any[] = [];
     visit(tree, "heading", (node: any) => {
+      const text = strUtils.toString(node);
+      const id = slugger.slug(text);
       if (node.depth === 2 || node.depth === 3) {
-        const text = node.children.filter((c: any) => c.type === "text").map((c: any) => c.value).join("");
-        const id = text.toLowerCase().replace(/\\s+/g, '-').replace(/[^a-z0-9-]/g, '');
         toc.push({ level: node.depth, id, text });
       }
     });
@@ -154,6 +163,7 @@ export async function processContent(content: string | Buffer, mimeType: string 
       .use(remarkParse)
       .use(remarkGfm)
       .use(remarkMath)
+      .use(remarkBreaks)
       .use(remarkExtractToc)
       .use(remarkExtractSections) // Our new AI Chunking engine!
       .use(remarkRehype, { allowDangerousHtml: true })
@@ -169,8 +179,9 @@ export async function processContent(content: string | Buffer, mimeType: string 
     const hastTree = await processor.run(processor.parse(rawContent));
     
     const vfile = { data: { toc: [], sections: [] } };
-    remarkExtractToc()(hastTree, vfile as any);
-    remarkExtractSections()(processor.parse(rawContent), vfile as any);
+    const mdastTree = processor.parse(rawContent);
+    remarkExtractToc()(mdastTree, vfile as any);
+    remarkExtractSections()(mdastTree, vfile as any);
     
     const parsed_ast = JSON.stringify({ 
       hast: hastTree, 
@@ -216,34 +227,95 @@ export function deleteBranch(branchName: string) {
   db.prepare("DELETE FROM branches WHERE name = ?").run(branchName);
 }
 
-export function getTree(version: string, locale: string) {
-  return db.prepare(`SELECT path FROM tree_entries WHERE version = ? AND path LIKE ? ORDER BY path ASC`).all(version, `${locale}/%`) as { path: string }[];
+// Reconstruct the full file tree for a branch by walking the commit history.
+// Only the most recent entry per path is returned (delta model).
+// NULL hash rows (tombstones) are excluded — they mark deleted files.
+export function getTree(branchName: string, locale: string) {
+  return db.prepare(`
+    WITH RECURSIVE history(version, parent, depth) AS (
+      SELECT t.version, t.parent, 0
+      FROM trees t
+      JOIN branches b ON b.head_version = t.version
+      WHERE b.name = ?
+      UNION ALL
+      SELECT t.version, t.parent, h.depth + 1
+      FROM trees t JOIN history h ON t.version = h.parent
+    ),
+    ranked AS (
+      SELECT te.path, te.hash,
+             ROW_NUMBER() OVER (PARTITION BY te.path ORDER BY h.depth ASC) AS rn
+      FROM tree_entries te
+      JOIN history h ON te.version = h.version
+      WHERE te.path LIKE ?
+    )
+    SELECT path FROM ranked WHERE rn = 1 AND hash IS NOT NULL
+    ORDER BY path ASC
+  `).all(branchName, `${locale}/%`) as { path: string }[];
 }
 
-export function getFile(version: string, path: string) {
+// Resolve a single file from a branch by walking history.
+// Returns NULL if the file doesn't exist or was deleted (tombstone).
+export function getFile(branchName: string, filePath: string) {
   return db.prepare(`
+    WITH RECURSIVE history(version, parent, depth) AS (
+      SELECT t.version, t.parent, 0
+      FROM trees t
+      JOIN branches b ON b.head_version = t.version
+      WHERE b.name = ?
+      UNION ALL
+      SELECT t.version, t.parent, h.depth + 1
+      FROM trees t JOIN history h ON t.version = h.parent
+    ),
+    ranked AS (
+      SELECT te.hash,
+             ROW_NUMBER() OVER (PARTITION BY te.path ORDER BY h.depth ASC) AS rn
+      FROM tree_entries te
+      JOIN history h ON te.version = h.version
+      WHERE te.path = ?
+    )
     SELECT b.mime_type, b.raw_content, b.frontmatter, b.parsed_ast
-    FROM tree_entries te
-    JOIN blobs b ON te.hash = b.hash
-    WHERE te.version = ? AND te.path = ?
-  `).get(version, path) as any;
+    FROM ranked r
+    JOIN blobs b ON r.hash = b.hash
+    WHERE r.rn = 1 AND r.hash IS NOT NULL
+  `).get(branchName, filePath) as any;
 }
 
 // ✨ THE ULTIMATE SEARCH ENGINE: Section-based with Breadcrumbs
-export function search(version: string, locale: string, query: string) {
+// Uses recursive CTE to resolve visible (non-deleted) files for the branch,
+// then searches only within those file hashes.
+export function search(branchName: string, locale: string, query: string) {
   return db.prepare(`
+    WITH RECURSIVE history(version, parent, depth) AS (
+      SELECT t.version, t.parent, 0
+      FROM trees t
+      JOIN branches b ON b.head_version = t.version
+      WHERE b.name = ?
+      UNION ALL
+      SELECT t.version, t.parent, h.depth + 1
+      FROM trees t JOIN history h ON t.version = h.parent
+    ),
+    ranked AS (
+      SELECT te.path, te.hash,
+             ROW_NUMBER() OVER (PARTITION BY te.path ORDER BY h.depth ASC) AS rn
+      FROM tree_entries te
+      JOIN history h ON te.version = h.version
+      WHERE te.path LIKE ?
+    ),
+    visible AS (
+      SELECT path, hash FROM ranked WHERE rn = 1 AND hash IS NOT NULL
+    )
     SELECT 
-      te.path, 
+      v.path, 
       b.frontmatter, 
       fts.heading_id, 
       fts.breadcrumb, 
       snippet(blob_sections_fts, 3, '<mark>', '</mark>', '...', 20) as snippet
-    FROM tree_entries te
-    JOIN blob_sections_fts fts ON te.hash = fts.hash
-    JOIN blobs b ON te.hash = b.hash
-    WHERE te.version = ? AND te.path LIKE ? AND blob_sections_fts MATCH ?
+    FROM visible v
+    JOIN blob_sections_fts fts ON v.hash = fts.hash
+    JOIN blobs b ON v.hash = b.hash
+    WHERE blob_sections_fts MATCH ?
     ORDER BY rank LIMIT 20
-  `).all(version, `${locale}/%`, query) as any[];
+  `).all(branchName, `${locale}/%`, query) as any[];
 }
 
 export function getFileHistory(branchName: string, path: string) {
@@ -312,17 +384,14 @@ export async function commitChanges({ branch, author, message, changedFiles, del
       changedHashes.set(item.path, item.hash);
     }
 
-    if (parentVersion) {
-      const copyTreeEntries = db.prepare(`
-        INSERT INTO tree_entries (version, path, hash)
-        SELECT ?, path, hash FROM tree_entries 
-        WHERE version = ? AND path NOT IN (` + 
-        (deletedFiles.length > 0 ? deletedFiles.map(() => '?').join(',') : "''") + `)
-      `);
-      if (deletedFiles.length > 0) {
-        copyTreeEntries.run(newCommitId, parentVersion, ...deletedFiles);
-      } else {
-        copyTreeEntries.run(newCommitId, parentVersion);
+    // Delta model: only write tombstones for explicitly deleted files.
+    // No full copy of parent entries — history is resolved by recursive CTE walk.
+    if (deletedFiles.length > 0) {
+      const insertTombstone = db.prepare(
+        `INSERT OR IGNORE INTO tree_entries (version, path, hash) VALUES (?, ?, NULL)`
+      );
+      for (const deletedPath of deletedFiles) {
+        insertTombstone.run(newCommitId, deletedPath);
       }
     }
 

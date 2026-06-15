@@ -1,5 +1,5 @@
-import { useLoaderData, Form, redirect, useNavigate, useSubmit, useFetcher } from "react-router";
-import { getFile, getBranchHead, commitChanges } from "../cms.server";
+import { useLoaderData, Form, redirect, useNavigate, useSubmit, useFetcher, useActionData } from "react-router";
+import { getFile, commitChanges } from "../cms.server";
 import { requireUser } from "../session.server";
 import { pushToGitHub } from "../github.server";
 import { useState, useEffect, useRef } from "react";
@@ -13,8 +13,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const locale = params.locale as string;
   const branchName = decodeURIComponent(params.branch as string);
   const path = `${locale}/${params["*"]}`;
-  const headVersion = getBranchHead(branchName);
-  const file = getFile(headVersion, path);
+  const file = getFile(branchName, path);
   if (!file) throw new Response("Not Found", { status: 404 });
   return { file, path: params["*"] as string, locale, branch: branchName };
 }
@@ -42,8 +41,10 @@ export async function action({ request, params }: ActionFunctionArgs) {
       // Wait, we still update local SQLite so UI updates instantly without waiting for webhook
     } catch (e) {
       console.error("GitHub Push Failed:", e);
-      // Decide whether to block or allow local-only save if GH push fails
+      return Response.json({ error: "Failed to push to GitHub. See console for details.", detail: String(e) }, { status: 500 });
     }
+  } else {
+    console.warn("Skipping GitHub push. Missing token or GITHUB_REPO.", { hasToken: !!user.token, repo: process.env.GITHUB_REPO });
   }
 
   await commitChanges({
@@ -64,10 +65,13 @@ export default function FileEdit() {
   const fetcher = useFetcher<any>();
   const formRef = useRef<HTMLFormElement>(null);
   const monacoRef = useRef<any>(null);
+  const monacoInstanceRef = useRef<any>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   
   const [content, setContent] = useState(file.raw_content);
   const [pendingAssets, setPendingAssets] = useState<any[]>([]);
+
+  const actionData = useActionData<any>();
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -91,8 +95,35 @@ export default function FileEdit() {
 
   const astPreviewStr = fetcher.data?.parsed_ast || file.parsed_ast;
 
+  const handleImageFile = (fileUpload: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (!event.target?.result) return;
+      const base64 = (event.target.result as string).split(',')[1];
+      const ext = fileUpload.type.split('/')[1] || 'png';
+      const fileName = `img-${Date.now()}.${ext}`;
+      const assetPath = `${locale}/assets/${fileName}`;
+
+      setPendingAssets(prev => [...prev, { path: assetPath, content: base64, mime_type: fileUpload.type }]);
+
+      const editor = monacoRef.current;
+      const monacoInstance = monacoInstanceRef.current;
+      if (editor && monacoInstance) {
+        const position = editor.getPosition();
+        const text = `![${fileUpload.name}](/${locale}/${encodeURIComponent(branch)}/assets/${fileName})`;
+        editor.executeEdits("upload", [{
+          range: new monacoInstance.Range(position.lineNumber, position.column, position.lineNumber, position.column),
+          text: text,
+          forceMoveMarkers: true
+        }]);
+      }
+    };
+    reader.readAsDataURL(fileUpload);
+  };
+
   const handleEditorDidMount = (editor: any, monaco: any) => {
     monacoRef.current = editor;
+    monacoInstanceRef.current = monaco;
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
       if (formRef.current) {
         const formData = new FormData(formRef.current);
@@ -103,40 +134,33 @@ export default function FileEdit() {
         submit(formData, { method: "post" });
       }
     });
+
+    editor.getDomNode().addEventListener('paste', (e: any) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.indexOf("image") !== -1) {
+          e.preventDefault();
+          e.stopPropagation();
+          const fileUpload = item.getAsFile();
+          if (fileUpload) handleImageFile(fileUpload);
+        }
+      }
+    }, true);
   };
 
   const handlePasteOrDrop = (e: React.ClipboardEvent | React.DragEvent) => {
     const items = (e as React.ClipboardEvent).clipboardData?.items || (e as React.DragEvent).dataTransfer?.items;
     if (!items) return;
     
-    for (const item of items) {
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
       if (item.type.indexOf("image") !== -1) {
         e.preventDefault();
+        e.stopPropagation();
         const fileUpload = item.getAsFile();
-        if (!fileUpload) continue;
-        
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (!event.target?.result) return;
-          const base64 = (event.target.result as string).split(',')[1];
-          const ext = fileUpload.type.split('/')[1] || 'png';
-          const fileName = `img-${Date.now()}.${ext}`;
-          const assetPath = `${locale}/assets/${fileName}`;
-
-          setPendingAssets(prev => [...prev, { path: assetPath, content: base64, mime_type: fileUpload.type }]);
-
-          const editor = monacoRef.current;
-          if (editor && (window as any).monaco) {
-            const position = editor.getPosition();
-            const text = `![${fileUpload.name}](/${locale}/${encodeURIComponent(branch)}/assets/${fileName})`;
-            editor.executeEdits("upload", [{
-              range: new (window as any).monaco.Range(position.lineNumber, position.column, position.lineNumber, position.column),
-              text: text,
-              forceMoveMarkers: true
-            }]);
-          }
-        };
-        reader.readAsDataURL(fileUpload);
+        if (fileUpload) handleImageFile(fileUpload);
       }
     }
   };
@@ -156,7 +180,7 @@ export default function FileEdit() {
 
       <Form method="post" ref={formRef} style={{ display: "flex", flex: 1, overflow: "hidden" }}>
         <div 
-          onPaste={handlePasteOrDrop}
+          onPasteCapture={handlePasteOrDrop}
           onDrop={handlePasteOrDrop}
           onDragOver={(e) => e.preventDefault()}
           style={{ flex: 1, display: "flex", flexDirection: "column", borderRight: "1px solid var(--border-color)", background: "var(--bg-body)" }}
@@ -170,6 +194,11 @@ export default function FileEdit() {
             </div>
             <kbd className="kbd" style={{ fontSize: "11px", opacity: 0.7 }}>Cmd + S</kbd>
           </div>
+          {actionData?.error && (
+            <div className="bg-red-50 text-red-600 p-2 text-xs font-medium border-b border-red-200">
+              Error: {actionData.error}
+            </div>
+          )}
           <div style={{ flex: 1, position: "relative" }}>
              <Editor
                height="100%"

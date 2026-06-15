@@ -1,12 +1,11 @@
-import { getFile, getBranchHead } from "../cms.server";
+import { getFile } from "../cms.server";
 
 export async function loader({ params }: any) {
   const branchName = decodeURIComponent(params.branch as string);
   const locale = params.locale as string;
   const path = `${locale}/assets/${params["*"]}`;
-  const headVersion = getBranchHead(branchName);
-  
-  const file = getFile(headVersion, path);
+
+  const file = getFile(branchName, path);
   if (!file) {
     throw new Response("Not Found", { status: 404 });
   }

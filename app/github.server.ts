@@ -13,10 +13,40 @@ export async function pushToGitHub(
   const branchPath = branch === "main" ? "heads/main" : `heads/${branch}`;
 
   // 1. Get the current commit SHA of the branch
-  const refRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/${branchPath}`, {
+  let refRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/${branchPath}`, {
     headers: { Authorization: `Bearer ${token}` }
   });
-  if (!refRes.ok) throw new Error("Failed to fetch branch reference from GitHub.");
+  
+  if (refRes.status === 404) {
+    // Branch doesn't exist, create it from main
+    const mainRefRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/heads/main`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!mainRefRes.ok) throw new Error("Failed to fetch main branch reference");
+    const mainRefData = await mainRefRes.json();
+    
+    const createBranchRes = await fetch(`https://api.github.com/repos/${repo}/git/refs`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ref: `refs/${branchPath}`,
+        sha: mainRefData.object.sha
+      })
+    });
+    if (!createBranchRes.ok) {
+      const errorData = await createBranchRes.json().catch(() => ({}));
+      throw new Error(`Failed to create new branch on GitHub: ${JSON.stringify(errorData)}`);
+    }
+    
+    refRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/${branchPath}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
+
+  if (!refRes.ok) {
+    const errorData = await refRes.json().catch(() => ({}));
+    throw new Error(`Failed to fetch branch reference from GitHub (${branchPath}): ${JSON.stringify(errorData)}`);
+  }
   const refData = await refRes.json();
   const latestCommitSha = refData.object.sha;
 
@@ -42,6 +72,7 @@ export async function pushToGitHub(
       })
     });
     const blobData = await blobRes.json();
+    if (!blobRes.ok) throw new Error(`Failed to create blob: ${JSON.stringify(blobData)}`);
 
     treeNodes.push({
       path: file.path,
@@ -61,6 +92,7 @@ export async function pushToGitHub(
     })
   });
   const newTreeData = await treeRes.json();
+  if (!treeRes.ok) throw new Error(`Failed to create tree: ${JSON.stringify(newTreeData)}`);
 
   // 5. Create new Commit
   const newCommitRes = await fetch(`https://api.github.com/repos/${repo}/git/commits`, {
@@ -73,6 +105,7 @@ export async function pushToGitHub(
     })
   });
   const newCommitData = await newCommitRes.json();
+  if (!newCommitRes.ok) throw new Error(`Failed to create commit: ${JSON.stringify(newCommitData)}`);
 
   // 6. Update Branch Reference
   const updateRefRes = await fetch(`https://api.github.com/repos/${repo}/git/refs/${branchPath}`, {

@@ -1,0 +1,14 @@
+contentResult is React Element? true
+contentResult type: object
+contentResult keys: [ '$$typeof', 'type', 'key', 'props', '_owner', '_store' ]
+Caught Error: TypeError: Cannot destructure property 'basename' of 'React10.useContext(...)' as it is null.
+    at LinkWithRef (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-router@7.17.0_react-d_baab528766f60cc2302fdb247715e15d\node_modules\react-router\dist\development\chunk-6CSD65Y2.mjs:10445:11)
+    at Object.react_stack_bottom_frame (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:9808:18)
+    at renderWithHooks (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5062:19)
+    at renderElement (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:6017:39)
+    at retryNode (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:6417:31)
+    at renderNodeDestructive (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:6367:11)
+    at finishFunctionComponent (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5106:13)
+    at renderElement (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:5552:11)
+    at retryNode (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:6417:31)
+    at renderNodeDestructive (C:\Users\Admin\Downloads\rr7-docs\node_modules\.pnpm\react-dom@19.2.7_react@19.2.7\node_modules\react-dom\cjs\react-dom-server-legacy.node.development.js:6367:11)

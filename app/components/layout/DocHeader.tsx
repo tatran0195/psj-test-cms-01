@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router";
-import { Edit3, Clock, Calendar, BookOpen } from "lucide-react";
+import { Edit3, Clock, Calendar, BookOpen, Bug } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { MiniPagination } from "./Pagination";
 
@@ -36,7 +36,7 @@ export function DocHeader({ path, branch, locale, title, description, isRelease,
         <div className="flex items-center gap-1 shrink-0">
           {!isRelease && (
             <>
-              <button onClick={() => setShowHistory(!showHistory)} className={`btn-ghost p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-border/50 ${showHistory ? 'bg-sidebar text-foreground' : ''}`} title="Revision History">
+              <button type="button" onClick={() => setShowHistory(!showHistory)} className={`btn-ghost p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-border/50 ${showHistory ? 'bg-sidebar text-foreground' : ''}`} title="Revision History">
                 <Clock size={16} />
               </button>
               <Link to={`/${locale}/${encodeURIComponent(branch)}/edit/${path}`} className="btn-ghost p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-border/50" title="Edit this page">
@@ -44,6 +44,9 @@ export function DocHeader({ path, branch, locale, title, description, isRelease,
               </Link>
             </>
           )}
+          <a href="https://github.com/tatran0195/psjnext/issues/new" target="_blank" rel="noreferrer" className="btn-ghost p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-border/50" title="Report an issue">
+            <Bug size={16} />
+          </a>
           <div className="w-[1px] h-4 bg-border mx-1" />
           {/* Mini Pagination Buttons */}
           <MiniPagination prev={prevPage} next={nextPage} locale={locale} branch={branch} />

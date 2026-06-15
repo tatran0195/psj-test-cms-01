@@ -56,7 +56,7 @@ try {
     // Note: FTS5 requires deleting using MATCH or from the virtual table directly is not supported like this sometimes,
     // actually we can just delete from blobs_fts where hash IN (...) if it has a rowid.
     // The safest FTS5 delete by column is: `DELETE FROM blobs_fts WHERE hash = ?`
-    const deleteFts = db.prepare("DELETE FROM blobs_fts WHERE hash = ?");
+    const deleteFts = db.prepare("DELETE FROM blob_sections_fts WHERE hash = ?");
     const deleteBlob = db.prepare("DELETE FROM blobs WHERE hash = ?");
     
     let deletedCount = 0;

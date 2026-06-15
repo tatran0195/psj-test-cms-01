@@ -1,7 +1,7 @@
 import { useLoaderData, Link, useRouteError, isRouteErrorResponse } from "react-router";
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { getFileHistory, getFile, getBranchHead, getTree } from "../cms.server";
+import { getFileHistory, getFile, getTree } from "../cms.server";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LoaderFunctionArgs } from "react-router";
 import { RevisionHistory } from "../components/RevisionHistory";
@@ -39,9 +39,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const locale = params.locale as string;
   const branchName = decodeURIComponent(params.branch as string);
   const path = `${locale}/${params["*"]}`; // e.g., en/macro/intro.mdx
-  const headVersion = getBranchHead(branchName);
-  
-  const file = getFile(headVersion, path);
+  const file = getFile(branchName, path);
   if (!file) throw new Response("Not Found", { status: 404 });
 
   const isRelease = process.env.IS_CLIENT_RELEASE === "true";
@@ -51,7 +49,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const stats = file.mime_type === "text/markdown" ? readingTime(file.raw_content) : null;
 
   // Compute Prev / Next Pages
-  const tree = getTree(headVersion, locale)
+  const tree = getTree(branchName, locale)
     .filter(t => t.path.endsWith('.md') || t.path.endsWith('.mdx'))
     .map(t => t.path.substring(locale.length + 1));
 
@@ -60,7 +58,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   let prevPage = null;
   if (currentIndex > 0) {
     const prevPath = tree[currentIndex - 1];
-    const prevFile = getFile(headVersion, `${locale}/${prevPath}`);
+    const prevFile = getFile(branchName, `${locale}/${prevPath}`);
     const fm = prevFile?.frontmatter ? JSON.parse(prevFile.frontmatter) : {};
     prevPage = { path: prevPath, title: fm.title || prevPath.split('/').pop() };
   }
@@ -68,7 +66,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
   let nextPage = null;
   if (currentIndex !== -1 && currentIndex < tree.length - 1) {
     const nextPath = tree[currentIndex + 1];
-    const nextFile = getFile(headVersion, `${locale}/${nextPath}`);
+    const nextFile = getFile(branchName, `${locale}/${nextPath}`);
     const fm = nextFile?.frontmatter ? JSON.parse(nextFile.frontmatter) : {};
     nextPage = { path: nextPath, title: fm.title || nextPath.split('/').pop() };
   }
@@ -91,6 +89,22 @@ export async function loader({ params }: LoaderFunctionArgs) {
 export default function FileView() {
   const { file, path, locale, branch, isRelease, isBinary, mimeType, history, stats, prevPage, nextPage } = useLoaderData<typeof loader>();
   const [showHistory, setShowHistory] = useState(false);
+
+  // Click delegation for the copy-to-clipboard buttons injected into code blocks
+  const handleCopyClick = (e: React.MouseEvent) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>(".copy-btn");
+    if (!btn) return;
+    e.preventDefault();
+    const figure = btn.closest("figure");
+    const code = figure?.querySelector("code");
+    if (!code) return;
+    navigator.clipboard.writeText(code.innerText);
+    const originalSvg = btn.innerHTML;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    setTimeout(() => {
+      btn.innerHTML = originalSvg;
+    }, 2000);
+  };
 
   const frontmatter = file && file.frontmatter ? JSON.parse(file.frontmatter) : {};
   const parsed = file && file.parsed_ast ? JSON.parse(file.parsed_ast) : { hast: null, toc: [] };
@@ -129,7 +143,9 @@ export default function FileView() {
           {showHistory && <RevisionHistory history={history} />}
         </AnimatePresence>
 
-        <MDXRenderer htmlAstStr={file.parsed_ast} />
+        <div onClick={handleCopyClick}>
+          <MDXRenderer htmlAstStr={file.parsed_ast} locale={locale} branch={branch} />
+        </div>
         
         <ArticlePagination prev={prevPage} next={nextPage} locale={locale} branch={branch} />
 

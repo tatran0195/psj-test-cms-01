@@ -1,5 +1,5 @@
 import { Outlet, useLoaderData, useLocation, useFetcher, redirect } from "react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getTree, getBranches, search, getBranchHead, createBranch, deleteBranch } from "../cms.server";
 import { getUser } from "../session.server";
 import { Sidebar } from "../components/layout/Sidebar";
@@ -33,10 +33,10 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const headVersion = getBranchHead(branchName);
   if (!headVersion) throw new Response("Branch Not Found", { status: 404 });
   
-  if (q !== null) return { searchResults: q ? search(headVersion, locale, q) : [] };
+  if (q !== null) return { searchResults: q ? search(branchName, locale, q) : [] };
 
   const branches = getBranches();
-  const treeList = getTree(headVersion, locale);
+  const treeList = getTree(branchName, locale);
   const user = await getUser(request);
   const isRelease = process.env.IS_CLIENT_RELEASE === "true";
 
@@ -77,6 +77,18 @@ export default function BranchLayout() {
   const currentPathMatch = location.pathname.match(matchRegex);
   const currentPath = currentPathMatch ? currentPathMatch[2] : '';
 
+  const flatTreeList = useMemo(() => {
+    const list: any[] = [];
+    const traverse = (node: any) => {
+      if (node.isFile) {
+        list.push({ title: node.name, path: `${locale}/${node.path}`, snippet: "Matched from document title (Fuzzy search)" });
+      }
+      Object.values(node.children || {}).forEach(traverse);
+    };
+    traverse(treeRoot);
+    return list;
+  }, [treeRoot, locale]);
+
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setSearchOpen((o) => !o); }
@@ -115,7 +127,8 @@ export default function BranchLayout() {
         searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
         searchResults={fetcher.data?.searchResults || []} 
         isLoading={fetcher.state === "loading"} 
-        locale={locale} branch={branch} 
+        locale={locale} branch={branch}
+        treeList={flatTreeList}
       />
     </div>
   );
