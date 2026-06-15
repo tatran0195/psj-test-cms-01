@@ -11,7 +11,7 @@ interface TopbarProps {
 
 export function Topbar({ setSidebarOpen, user, isRelease }: TopbarProps) {
   return (
-    <header className="app-topbar flex h-14 px-4 items-center justify-between border-b border-border bg-background lg:justify-end">
+    <header className="app-topbar flex shrink-0 h-14 px-4 items-center justify-between border-b border-border bg-background lg:justify-end">
       <div className="flex items-center gap-4 lg:hidden">
         <button onClick={() => setSidebarOpen(true)} className="btn-ghost p-2 -ml-2"><Menu size={20} /></button>
         <div className="font-bold text-sm">PSJ Docs</div>

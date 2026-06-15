@@ -57,7 +57,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
     token: token // Used for committing!
   });
 
-  return redirect("/", {
+  const redirectTo = session.get("redirectTo") || "/";
+  session.unset("redirectTo");
+
+  return redirect(redirectTo, {
     headers: { "Set-Cookie": await commitSession(session) },
   });
 }

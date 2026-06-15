@@ -4,17 +4,20 @@ import type { LoaderFunctionArgs } from "react-router";
 
 export async function loader({ request }: LoaderFunctionArgs) {
   const clientId = process.env.GITHUB_CLIENT_ID;
+  const urlParams = new URL(request.url).searchParams;
+  const redirectTo = urlParams.get("redirectTo") || "/";
+  const session = await getSession(request.headers.get("Cookie"));
+  session.set("redirectTo", redirectTo);
   
   if (!clientId) {
     // FALLBACK FOR SANDBOX ENVIRONMENT WITHOUT SECRETS
-    const session = await getSession(request.headers.get("Cookie"));
     session.set("user", {
       id: "12345",
       username: "mock-developer",
       avatar: "https://avatars.githubusercontent.com/u/9919?s=200&v=4",
       token: "mock-token"
     });
-    return redirect("/", {
+    return redirect(redirectTo, {
       headers: { "Set-Cookie": await commitSession(session) },
     });
   }
@@ -24,5 +27,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   // preventing "redirect_uri mismatch" errors when testing on different origins (e.g., localhost vs 127.0.0.1)
   const url = `https://github.com/login/oauth/authorize?client_id=${clientId}&scope=repo`;
   
-  return redirect(url);
+  return redirect(url, {
+    headers: { "Set-Cookie": await commitSession(session) },
+  });
 }

@@ -170,6 +170,39 @@
   }
   .markdown-body figure[data-rehype-pretty-code-figure]:hover .copy-btn { opacity: 1; }
   .copy-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+
+  /* App Layout */
+  .app-layout {
+    @apply flex relative h-screen w-full overflow-hidden bg-background;
+  }
+  
+  .app-sidebar {
+    @apply flex w-[260px] shrink-0 flex-col border-r border-border bg-sidebar h-full;
+  }
+  
+  .sidebar-header {
+    @apply flex flex-col gap-4 p-4 border-b border-border;
+  }
+  
+  .sidebar-scrollarea {
+    @apply flex-1 overflow-y-auto py-2;
+  }
+
+  .search-trigger {
+    @apply flex items-center justify-between w-full px-3 py-2 text-[13px] font-medium text-muted bg-background border border-border rounded-md hover:border-accent hover:text-accent transition-colors cursor-pointer;
+  }
+  
+  .app-main-wrapper {
+    @apply flex flex-1 flex-col min-w-0 h-full overflow-hidden;
+  }
+  
+  .app-main {
+    @apply flex-1 overflow-y-auto bg-background relative;
+  }
+  
+  .content-container {
+    @apply mx-auto w-full max-w-[900px] p-6 lg:p-12;
+  }
 }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }

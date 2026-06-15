@@ -29,6 +29,9 @@ export function MDXRenderer({ htmlAstStr }: MDXRendererProps) {
   const content = useMemo(() => {
     if (!ast) return null;
     
+    const hast = ast.hast || ast;
+    if (!hast || !hast.type) return null;
+    
     // We use unified to process the parsed hast (HTML AST)
     const processor = unified().use(rehypeReact, {
       Fragment: runtime.Fragment,
@@ -37,7 +40,7 @@ export function MDXRenderer({ htmlAstStr }: MDXRendererProps) {
       components: customComponents as any,
     });
     
-    return processor.stringify(processor.runSync(ast)) as any;
+    return processor.stringify(processor.runSync(hast)) as any;
   }, [ast]);
 
   if (!content) return <div>Failed to render content</div>;

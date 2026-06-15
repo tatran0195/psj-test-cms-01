@@ -1,6 +1,6 @@
 import { Outlet, useLoaderData, useLocation, useFetcher, redirect } from "react-router";
 import { useState, useEffect } from "react";
-import { getTree, getBranches, search, getBranchHead, createBranch } from "../cms.server";
+import { getTree, getBranches, search, getBranchHead, createBranch, deleteBranch } from "../cms.server";
 import { getUser } from "../session.server";
 import { Sidebar } from "../components/layout/Sidebar";
 import { SearchCommand } from "../components/layout/SearchCommand";
@@ -14,6 +14,12 @@ export async function action({ request, params }: ActionFunctionArgs) {
     const newBranch = formData.get("newBranch") as string;
     createBranch(newBranch, decodeURIComponent(params.branch as string));
     return redirect(`/${params.locale}/${encodeURIComponent(newBranch)}`);
+  }
+  
+  if (formData.get("_action") === "deleteBranch") {
+    const branchToDelete = formData.get("branchToDelete") as string;
+    deleteBranch(branchToDelete);
+    return redirect(`/${params.locale}/main`);
   }
   return null;
 }

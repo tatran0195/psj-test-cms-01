@@ -28,7 +28,14 @@ export async function getUser(request: Request): Promise<UserSession | null> {
 export async function requireUser(request: Request): Promise<UserSession> {
   const user = await getUser(request);
   if (!user) {
-    throw new Response("Unauthorized", { status: 401 });
+    const url = new URL(request.url);
+    const searchParams = new URLSearchParams([["redirectTo", url.pathname + url.search]]);
+    throw new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/auth/github?${searchParams}`
+      }
+    });
   }
   return user;
 }

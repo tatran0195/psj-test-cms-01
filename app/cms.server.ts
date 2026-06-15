@@ -212,6 +212,10 @@ export function createBranch(newBranch: string, fromBranch: string) {
   db.prepare("INSERT INTO branches (name, head_version) VALUES (?, ?)").run(newBranch, baseVersion);
 }
 
+export function deleteBranch(branchName: string) {
+  db.prepare("DELETE FROM branches WHERE name = ?").run(branchName);
+}
+
 export function getTree(version: string, locale: string) {
   return db.prepare(`SELECT path FROM tree_entries WHERE version = ? AND path LIKE ? ORDER BY path ASC`).all(version, `${locale}/%`) as { path: string }[];
 }

@@ -2,7 +2,7 @@ import React from "react";
 import { Link, Form } from "react-router";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Select from "@radix-ui/react-select";
-import { ChevronRight, FileText, Folder, BookOpen, GitBranch, Search, User, LogOut, FileImage, Check, X, Globe } from "lucide-react";
+import { ChevronRight, FileText, Folder, BookOpen, GitBranch, Search, User, LogOut, FileImage, Check, X, Globe, Trash2 } from "lucide-react";
 
 function isNodeActive(node: any, currentPath: string): boolean {
   if (node.isFile) return node.path === currentPath;
@@ -53,26 +53,37 @@ export function Sidebar({ locale, branch, branches, treeRoot, currentPath, isRel
 
         <div className="flex gap-2">
           {!isRelease ? (
-            <Select.Root value={branch} onValueChange={(val) => window.location.href = `/${locale}/${encodeURIComponent(val)}`}>
-              <Select.Trigger className="SelectTrigger flex-1">
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <GitBranch size={14} className="text-muted shrink-0" /> <span className="truncate">{branch}</span>
-                </div>
-                <Select.Icon><ChevronRight size={14} style={{ transform: "rotate(90deg)" }} className="text-muted" /></Select.Icon>
-              </Select.Trigger>
-              <Select.Portal>
-                <Select.Content className="SelectContent" position="popper" sideOffset={4}>
-                  <Select.Viewport className="SelectViewport">
-                    {branches.map((b: any) => (
-                      <Select.Item key={b.name} value={b.name} className="SelectItem">
-                        <Select.ItemIndicator className="SelectItemIndicator"><Check size={14} /></Select.ItemIndicator>
-                        <Select.ItemText>{b.name}</Select.ItemText>
-                      </Select.Item>
-                    ))}
-                  </Select.Viewport>
-                </Select.Content>
-              </Select.Portal>
-            </Select.Root>
+            <>
+              <Select.Root value={branch} onValueChange={(val) => window.location.href = `/${locale}/${encodeURIComponent(val)}`}>
+                <Select.Trigger className="SelectTrigger flex-1">
+                  <div className="flex items-center gap-1.5 overflow-hidden">
+                    <GitBranch size={14} className="text-muted shrink-0" /> <span className="truncate">{branch}</span>
+                  </div>
+                  <Select.Icon><ChevronRight size={14} style={{ transform: "rotate(90deg)" }} className="text-muted" /></Select.Icon>
+                </Select.Trigger>
+                <Select.Portal>
+                  <Select.Content className="SelectContent" position="popper" sideOffset={4}>
+                    <Select.Viewport className="SelectViewport">
+                      {branches.map((b: any) => (
+                        <Select.Item key={b.name} value={b.name} className="SelectItem">
+                          <Select.ItemIndicator className="SelectItemIndicator"><Check size={14} /></Select.ItemIndicator>
+                          <Select.ItemText>{b.name}</Select.ItemText>
+                        </Select.Item>
+                      ))}
+                    </Select.Viewport>
+                  </Select.Content>
+                </Select.Portal>
+              </Select.Root>
+              {branch !== "main" && user && (
+                <Form method="post" onSubmit={(e) => !confirm(`Are you sure you want to delete branch '${branch}'?`) && e.preventDefault()}>
+                  <input type="hidden" name="_action" value="deleteBranch" />
+                  <input type="hidden" name="branchToDelete" value={branch} />
+                  <button type="submit" className="btn-ghost p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded" title={`Delete branch ${branch}`}>
+                    <Trash2 size={14} />
+                  </button>
+                </Form>
+              )}
+            </>
           ) : (
             <div className="flex-1 flex items-center gap-1.5 px-3 py-1.5 bg-accent-bg text-accent rounded-md text-[13px] font-semibold truncate">
               <GitBranch size={14} className="shrink-0" /> <span className="truncate">{branch}</span>

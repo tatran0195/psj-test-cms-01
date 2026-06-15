@@ -8,6 +8,10 @@ const dbPath = path.resolve(process.cwd(), process.env.DB_FILE || "cms.db");
 const db = new DatabaseSync(dbPath);
 
 function walkDir(dir: string, fileList: string[] = []) {
+  if (!fs.existsSync(dir)) {
+    console.warn(`Directory not found: ${dir}, skipping...`);
+    return fileList;
+  }
   const files = fs.readdirSync(dir);
   for (const file of files) {
     const stat = fs.statSync(path.join(dir, file));
@@ -33,8 +37,8 @@ function getMimeType(filePath: string) {
 }
 
 async function runImport() {
-  const branchName = "release/5.2.0";
-  const sourceDir = "/tmp/psjnext"; // We will import BOTH English and Japanese
+  const branchName = process.argv[3] || "v5.2.0";
+  const sourceDir = process.argv[2] || "./tmp/psjnext"; // We will import BOTH English and Japanese
   
   console.log(`Importing from ${sourceDir} to branch ${branchName}...`);
 
