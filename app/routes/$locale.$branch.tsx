@@ -1,7 +1,8 @@
 import { Outlet, useLoaderData, useLocation, useFetcher, redirect } from "react-router";
 import { useState, useEffect, useMemo } from "react";
-import { getTree, getBranches, search, getBranchHead, createBranch, deleteBranch } from "../cms.server";
+import { getTree, getBranches, search, getBranchHead, createBranch, deleteBranch, commitChanges } from "../cms.server";
 import { getUser } from "../session.server";
+import { pushToGitHub } from "../github.server";
 import { Sidebar } from "../components/layout/Sidebar";
 import { SearchCommand } from "../components/layout/SearchCommand";
 import { Topbar } from "../components/layout/Topbar";
@@ -21,6 +22,54 @@ export async function action({ request, params }: ActionFunctionArgs) {
     deleteBranch(branchToDelete);
     return redirect(`/${params.locale}/main`);
   }
+
+  if (formData.get("_action") === "createFile") {
+    const user = await getUser(request);
+    const path = formData.get("path") as string;
+    const branch = decodeURIComponent(params.branch as string);
+    const locale = params.locale as string;
+    const fullPath = `${locale}/${path}`;
+    const initialContent = `# ${path.split('/').pop()?.replace('.md', '')}\n\nStart writing...`;
+
+    const changedFiles = [{ path: fullPath, content: initialContent, mime_type: "text/markdown" }];
+    
+    if (user?.token && process.env.GITHUB_REPO) {
+      await pushToGitHub(user.token, process.env.GITHUB_REPO, branch, `Create ${fullPath}`, changedFiles);
+    }
+    
+    await commitChanges({
+      branch,
+      author: user?.username || 'system',
+      message: `Create ${fullPath}`,
+      changedFiles,
+      deletedFiles: []
+    });
+    
+    return redirect(`/${locale}/${encodeURIComponent(branch)}/edit/${path}`);
+  }
+
+  if (formData.get("_action") === "deleteFile") {
+    const user = await getUser(request);
+    const path = formData.get("path") as string;
+    const branch = decodeURIComponent(params.branch as string);
+    const locale = params.locale as string;
+    const fullPath = `${locale}/${path}`;
+    
+    if (user?.token && process.env.GITHUB_REPO) {
+      await pushToGitHub(user.token, process.env.GITHUB_REPO, branch, `Delete ${fullPath}`, [], [fullPath]);
+    }
+
+    await commitChanges({
+      branch,
+      author: user?.username || 'system',
+      message: `Delete ${fullPath}`,
+      changedFiles: [],
+      deletedFiles: [fullPath]
+    });
+    
+    return redirect(`/${locale}/${encodeURIComponent(branch)}`);
+  }
+
   return null;
 }
 

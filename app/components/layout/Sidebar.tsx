@@ -1,37 +1,59 @@
 import React from "react";
-import { Link, Form } from "react-router";
+import { Link, Form, useSubmit } from "react-router";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Select from "@radix-ui/react-select";
-import { ChevronRight, FileText, Folder, BookOpen, GitBranch, Search, User, LogOut, FileImage, Check, X, Globe, Trash2 } from "lucide-react";
+import { ChevronRight, FileText, Folder, BookOpen, GitBranch, Search, User, LogOut, FileImage, Check, X, Globe, Trash2, Plus } from "lucide-react";
 
 function isNodeActive(node: any, currentPath: string): boolean {
   if (node.isFile) return node.path === currentPath;
   return currentPath.startsWith(node.path + "/");
 }
 
-function RadixTreeFolder({ node, locale, branch, currentPath, onSelect }: any) {
+function RadixTreeFolder({ node, locale, branch, currentPath, onSelect, onCreateFile, onDeleteFile, isRelease }: any) {
   const isActive = isNodeActive(node, currentPath);
   
   if (node.isFile) {
     const isImage = node.name.endsWith('.svg') || node.name.endsWith('.png') || node.name.endsWith('.jpg');
     return (
-      <Link to={`/${locale}/${encodeURIComponent(branch)}/${node.path}`} onClick={onSelect} className="TreeItem" data-active={node.path === currentPath ? "true" : "false"}>
-        {isImage ? <FileImage size={14} className="text-muted" /> : <FileText size={14} className="text-muted" />}
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
-      </Link>
+      <div className="group flex items-center pr-2">
+        <Link to={`/${locale}/${encodeURIComponent(branch)}/${node.path}`} onClick={onSelect} className="TreeItem flex-1" data-active={node.path === currentPath ? "true" : "false"}>
+          {isImage ? <FileImage size={14} className="text-muted" /> : <FileText size={14} className="text-muted" />}
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
+        </Link>
+        {!isRelease && (
+          <button 
+            className="hidden group-hover:block btn-ghost p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded" 
+            onClick={(e) => { e.preventDefault(); onDeleteFile(node.path); }}
+            title="Delete file"
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
+      </div>
     );
   }
 
   return (
     <Collapsible.Root defaultOpen={isActive}>
-      <Collapsible.Trigger className="TreeFolderTrigger">
-        <ChevronRight size={14} className="chevron text-muted" style={{ transition: "transform 0.2s" }} />
-        <Folder size={14} fill="currentColor" className="text-muted opacity-50" />
-        <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
-      </Collapsible.Trigger>
+      <div className="group flex items-center pr-2">
+        <Collapsible.Trigger className="TreeFolderTrigger flex-1">
+          <ChevronRight size={14} className="chevron text-muted" style={{ transition: "transform 0.2s" }} />
+          <Folder size={14} fill="currentColor" className="text-muted opacity-50" />
+          <span className="overflow-hidden text-ellipsis whitespace-nowrap">{node.name}</span>
+        </Collapsible.Trigger>
+        {!isRelease && (
+          <button 
+            className="hidden group-hover:block btn-ghost p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded" 
+            onClick={(e) => { e.preventDefault(); onCreateFile(node.path); }}
+            title="New file"
+          >
+            <Plus size={12} />
+          </button>
+        )}
+      </div>
       <Collapsible.Content className="TreeFolderContent">
         {Object.values(node.children).map((child: any) => (
-          <RadixTreeFolder key={child.name} node={child} locale={locale} branch={branch} currentPath={currentPath} onSelect={onSelect} />
+          <RadixTreeFolder key={child.name} node={child} locale={locale} branch={branch} currentPath={currentPath} onSelect={onSelect} onCreateFile={onCreateFile} onDeleteFile={onDeleteFile} isRelease={isRelease} />
         ))}
       </Collapsible.Content>
     </Collapsible.Root>
@@ -40,6 +62,28 @@ function RadixTreeFolder({ node, locale, branch, currentPath, onSelect }: any) {
 
 export function Sidebar({ locale, branch, branches, treeRoot, currentPath, isRelease, user, sidebarOpen, setSidebarOpen, setSearchOpen }: any) {
   const locales = ["en", "ja"];
+  const submit = useSubmit();
+
+  const handleCreateFile = (folderPath: string) => {
+    let name = prompt("Enter new file name (e.g. new-doc.md):");
+    if (name) {
+      if (!name.endsWith('.md')) name += '.md';
+      const fullPath = folderPath ? `${folderPath}/${name}` : name;
+      const fd = new FormData();
+      fd.append("_action", "createFile");
+      fd.append("path", fullPath);
+      submit(fd, { method: "post" });
+    }
+  };
+
+  const handleDeleteFile = (filePath: string) => {
+    if (confirm(`Are you sure you want to delete ${filePath}?`)) {
+      const fd = new FormData();
+      fd.append("_action", "deleteFile");
+      fd.append("path", filePath);
+      submit(fd, { method: "post" });
+    }
+  };
 
   return (
     <aside className={`app-sidebar ${sidebarOpen ? 'open' : ''}`}>
@@ -119,8 +163,19 @@ export function Sidebar({ locale, branch, branches, treeRoot, currentPath, isRel
 
       <div className="sidebar-scrollarea">
         <div className="TreeRoot">
+          {!isRelease && user && (
+            <div className="flex justify-end px-2 mb-1">
+              <button 
+                className="btn-ghost p-1 text-xs flex items-center gap-1 text-muted hover:text-foreground" 
+                onClick={() => handleCreateFile("")}
+                title="New file in root"
+              >
+                <Plus size={12} /> New File
+              </button>
+            </div>
+          )}
           {treeRoot && Object.values(treeRoot.children).map((child: any) => (
-            <RadixTreeFolder key={child.name} node={child} locale={locale} branch={branch} currentPath={currentPath} onSelect={() => setSidebarOpen(false)} />
+            <RadixTreeFolder key={child.name} node={child} locale={locale} branch={branch} currentPath={currentPath} onSelect={() => setSidebarOpen(false)} onCreateFile={handleCreateFile} onDeleteFile={handleDeleteFile} isRelease={isRelease || !user} />
           ))}
         </div>
       </div>
