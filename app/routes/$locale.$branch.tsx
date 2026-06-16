@@ -1,138 +1,304 @@
-import { Outlet, useLoaderData, useLocation, useFetcher, redirect } from "react-router";
+import {
+  Outlet,
+  useLoaderData,
+  useLocation,
+  useFetcher,
+  useNavigate,
+  redirect,
+} from "react-router";
 import { useState, useEffect, useMemo } from "react";
-import { getTree, getBranches, search, getBranchHead, createBranch, deleteBranch, commitChanges } from "../cms.server";
-import { getUser } from "../session.server";
+import {
+  getTree,
+  getBranches,
+  search,
+  getBranchHead,
+  createBranch,
+  deleteBranch,
+  commitChanges,
+} from "../cms.server";
+import {
+  getUser,
+  requireUser,
+  requireAdmin,
+  getOrInitCsrfToken,
+  commitSession,
+  getSession,
+  rotateCsrfToken,
+} from "../session.server";
 import { pushToGitHub } from "../github.server";
 import { Sidebar } from "../components/layout/Sidebar";
 import { SearchCommand } from "../components/layout/SearchCommand";
 import { Topbar } from "../components/layout/Topbar";
+import {
+  validateParams,
+  CreateBranchSchema,
+  DeleteBranchSchema,
+  CreateFileSchema,
+  DeleteFileSchema,
+  SearchQuerySchema,
+  LocaleSchema,
+  BranchNameSchema,
+} from "../lib/validation.js";
+import { logger } from "../lib/logger.js";
+import { checkRateLimit, ACTION_RATE_LIMIT } from "../lib/rate-limit.server.js";
 import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
+// ---------------------------------------------------------------------------
+// Action
+// ---------------------------------------------------------------------------
+
 export async function action({ request, params }: ActionFunctionArgs) {
-  if (process.env.IS_CLIENT_RELEASE === "true") throw new Response("Read Only", { status: 403 });
+  if (process.env.IS_CLIENT_RELEASE === "true") {
+    throw new Response("Read Only", { status: 403 });
+  }
+
+  const clientIp = request.headers.get("x-forwarded-for") ?? "unknown";
+  if (!checkRateLimit(clientIp, ACTION_RATE_LIMIT)) {
+    throw new Response("Rate limit exceeded. Try again in a minute.", { status: 429 });
+  }
+
+  const locale = validateParams(LocaleSchema, params.locale);
+  const branchParam = validateParams(
+    BranchNameSchema,
+    decodeURIComponent(params.branch as string),
+  );
+
   const formData = await request.formData();
-  if (formData.get("_action") === "createBranch") {
-    const newBranch = formData.get("newBranch") as string;
-    createBranch(newBranch, decodeURIComponent(params.branch as string));
-    return redirect(`/${params.locale}/${encodeURIComponent(newBranch)}`);
-  }
-  
-  if (formData.get("_action") === "deleteBranch") {
-    const branchToDelete = formData.get("branchToDelete") as string;
-    deleteBranch(branchToDelete);
-    return redirect(`/${params.locale}/main`);
+  const raw = Object.fromEntries(formData);
+  const actionType = raw._action as string;
+
+  // CSRF: compare the submitted token against the session token
+  const session = await getSession(request.headers.get("Cookie"));
+  const csrfToken = formData.get("csrf_token") as string;
+  if (!csrfToken || csrfToken !== session.get("csrf_token")) {
+    throw new Response("Invalid or missing CSRF token", { status: 403 });
   }
 
-  if (formData.get("_action") === "createFile") {
-    const user = await getUser(request);
-    const path = formData.get("path") as string;
-    const branch = decodeURIComponent(params.branch as string);
-    const locale = params.locale as string;
-    const fullPath = `${locale}/${path}`;
-    const initialContent = `# ${path.split('/').pop()?.replace('.md', '')}\n\nStart writing...`;
+  // Rotate token after passing validation so subsequent requests get a fresh one
+  const { setCookie: newCsrfCookie } = await rotateCsrfToken(request);
 
+  if (actionType === "createBranch") {
+    const data = validateParams(CreateBranchSchema, raw);
+    await requireUser(request);
+    createBranch(data.newBranch, branchParam);
+    logger.info(
+      { action: "createBranch", branch: data.newBranch, from: branchParam, ip: clientIp },
+      "Branch created",
+    );
+    return redirect(`/${locale}/${encodeURIComponent(data.newBranch)}`, {
+      headers: { "Set-Cookie": newCsrfCookie },
+    });
+  }
+
+  if (actionType === "deleteBranch") {
+    const data = validateParams(DeleteBranchSchema, raw);
+    await requireAdmin(request);
+    deleteBranch(data.branchToDelete);
+    logger.info(
+      { action: "deleteBranch", branch: data.branchToDelete, ip: clientIp },
+      "Branch deleted",
+    );
+    return redirect(`/${locale}/main`, {
+      headers: { "Set-Cookie": newCsrfCookie },
+    });
+  }
+
+  if (actionType === "createFile") {
+    const data = validateParams(CreateFileSchema, raw);
+    const user = await requireUser(request);
+    const fullPath = `${locale}/${data.path}`;
+    const initialContent = `# ${data.path.split("/").pop()?.replace(".md", "")}\n\nStart writing...`;
     const changedFiles = [{ path: fullPath, content: initialContent, mime_type: "text/markdown" }];
-    
-    if (user?.token && process.env.GITHUB_REPO) {
-      await pushToGitHub(user.token, process.env.GITHUB_REPO, branch, `Create ${fullPath}`, changedFiles);
-    }
-    
+
+    // SQLite commit first — GitHub push is best-effort / async
     await commitChanges({
-      branch,
-      author: user?.username || 'system',
+      branch: branchParam,
+      author: user.username,
       message: `Create ${fullPath}`,
       changedFiles,
-      deletedFiles: []
+      deletedFiles: [],
+      clientIp,
+      userAgent: request.headers.get("user-agent"),
     });
-    
-    return redirect(`/${locale}/${encodeURIComponent(branch)}/edit/${path}`);
-  }
 
-  if (formData.get("_action") === "deleteFile") {
-    const user = await getUser(request);
-    const path = formData.get("path") as string;
-    const branch = decodeURIComponent(params.branch as string);
-    const locale = params.locale as string;
-    const fullPath = `${locale}/${path}`;
-    
-    if (user?.token && process.env.GITHUB_REPO) {
-      await pushToGitHub(user.token, process.env.GITHUB_REPO, branch, `Delete ${fullPath}`, [], [fullPath]);
+    if (user.token && process.env.GITHUB_REPO) {
+      pushToGitHub(
+        user.token,
+        process.env.GITHUB_REPO,
+        branchParam,
+        `Create ${fullPath}`,
+        changedFiles,
+      ).catch((e: unknown) =>
+        logger.error({ err: e, user: user.username }, "GitHub push failed during createFile"),
+      );
     }
 
+    logger.info(
+      { action: "createFile", path: fullPath, user: user.username, ip: clientIp },
+      "File created",
+    );
+    return redirect(
+      `/${locale}/${encodeURIComponent(branchParam)}/edit/${data.path}`,
+      { headers: { "Set-Cookie": newCsrfCookie } },
+    );
+  }
+
+  if (actionType === "deleteFile") {
+    const data = validateParams(DeleteFileSchema, raw);
+    const user = await requireUser(request);
+    const fullPath = `${locale}/${data.path}`;
+
+    // SQLite commit first — GitHub push is best-effort / async
     await commitChanges({
-      branch,
-      author: user?.username || 'system',
+      branch: branchParam,
+      author: user.username,
       message: `Delete ${fullPath}`,
       changedFiles: [],
-      deletedFiles: [fullPath]
+      deletedFiles: [fullPath],
+      clientIp,
+      userAgent: request.headers.get("user-agent"),
     });
-    
-    return redirect(`/${locale}/${encodeURIComponent(branch)}`);
+
+    if (user.token && process.env.GITHUB_REPO) {
+      pushToGitHub(
+        user.token,
+        process.env.GITHUB_REPO,
+        branchParam,
+        `Delete ${fullPath}`,
+        [],
+        [fullPath],
+      ).catch((e: unknown) =>
+        logger.error({ err: e, user: user.username }, "GitHub push failed during deleteFile"),
+      );
+    }
+
+    logger.info(
+      { action: "deleteFile", path: fullPath, user: user.username, ip: clientIp },
+      "File deleted",
+    );
+    return redirect(`/${locale}/${encodeURIComponent(branchParam)}`, {
+      headers: { "Set-Cookie": newCsrfCookie },
+    });
   }
 
   return null;
 }
 
-export async function loader({ params, request }: LoaderFunctionArgs) {
-  const locale = params.locale as string;
-  const branchName = decodeURIComponent(params.branch as string);
+// ---------------------------------------------------------------------------
+// Loader
+// ---------------------------------------------------------------------------
+
+export interface BranchLoaderData {
+  locale: string;
+  branch: string;
+  branches: any[];
+  treeRoot: any;
+  user: any;
+  isRelease: boolean;
+  csrfToken: string;
+  searchResults?: any[];
+}
+
+export async function loader({
+  params,
+  request,
+}: LoaderFunctionArgs): Promise<BranchLoaderData> {
+  const locale = validateParams(LocaleSchema, params.locale);
+  const branchName = validateParams(
+    BranchNameSchema,
+    decodeURIComponent(params.branch as string),
+  );
   const url = new URL(request.url);
   const q = url.searchParams.get("q");
-  
+
   const headVersion = getBranchHead(branchName);
   if (!headVersion) throw new Response("Branch Not Found", { status: 404 });
-  
-  if (q !== null) return { searchResults: q ? search(branchName, locale, q) : [] };
+
+  if (q !== null) {
+    const validated = validateParams(SearchQuerySchema, { q });
+    const results = validated.q ? search(branchName, locale, validated.q) : [];
+    return Response.json({ searchResults: results }, {
+      headers: { "Cache-Control": "public, max-age=30" },
+    }) as unknown as BranchLoaderData;
+  }
 
   const branches = getBranches();
   const treeList = getTree(branchName, locale);
   const user = await getUser(request);
   const isRelease = process.env.IS_CLIENT_RELEASE === "true";
 
-  // Build nested JSON Tree, stripping locale prefix for the UI
+  // Lazy CSRF init: read existing token from session; generate only if absent.
+  // This avoids invalidating tokens in concurrent tabs.
+  const { csrfToken, session, needsCommit } = await getOrInitCsrfToken(request);
+
+  // Build tree from flat list — O(n) but unavoidable for sidebar rendering
   const treeRoot: any = { name: "root", children: {}, path: "" };
-  treeList.forEach((item: any) => {
-    // Remove "en/" or "ja/" from the start
+  for (const item of treeList) {
     const relPath = item.path.substring(locale.length + 1);
-    const parts = relPath.split('/');
+    const parts = relPath.split("/");
     let current = treeRoot;
-    parts.forEach((part: string, i: number) => {
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
       if (!current.children[part]) {
         current.children[part] = {
-          name: part, 
-          isFile: i === parts.length - 1, 
-          path: current.path ? `${current.path}/${part}` : part, 
-          children: {}
+          name: part,
+          isFile: i === parts.length - 1,
+          path: current.path ? `${current.path}/${part}` : part,
+          children: {},
         };
       }
       current = current.children[part];
-    });
-  });
+    }
+  }
 
-  return { locale, branch: branchName, branches, treeRoot, user, isRelease };
+  const data: BranchLoaderData = {
+    locale,
+    branch: branchName,
+    branches,
+    treeRoot,
+    user,
+    isRelease,
+    csrfToken,
+  };
+
+  // Only commit the session when we just initialised the token
+  const headers = needsCommit
+    ? { "Set-Cookie": await commitSession(session) }
+    : undefined;
+
+  return Response.json(data, { headers }) as unknown as BranchLoaderData;
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export default function BranchLayout() {
-  const { locale, branch, branches, treeRoot, user, isRelease } = useLoaderData<typeof loader>();
+  const { locale, branch, branches, treeRoot, user, isRelease, csrfToken } =
+    useLoaderData<BranchLoaderData>();
   const location = useLocation();
+  const navigate = useNavigate();
   const fetcher = useFetcher<any>();
-  
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Safely extract the current path without locale and branch
   const matchRegex = new RegExp(`^/${locale}/[^/]+/(edit/|assets/)?(.+)$`);
   const currentPathMatch = location.pathname.match(matchRegex);
-  const currentPath = currentPathMatch ? currentPathMatch[2] : '';
+  const currentPath = currentPathMatch ? currentPathMatch[2] : "";
 
   const flatTreeList = useMemo(() => {
     const list: any[] = [];
     const traverse = (node: any) => {
       if (node.isFile) {
-        list.push({ title: node.name, path: `${locale}/${node.path}`, snippet: "Matched from document title (Fuzzy search)" });
+        list.push({
+          title: node.name,
+          path: `${locale}/${node.path}`,
+          snippet: "Matched from document title (Fuzzy search)",
+        });
       }
-      Object.values(node.children || {}).forEach(traverse);
+      Object.values(node.children ?? {}).forEach(traverse);
     };
     traverse(treeRoot);
     return list;
@@ -140,43 +306,78 @@ export default function BranchLayout() {
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.key === "k" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); setSearchOpen((o) => !o); }
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setSearchOpen((o) => !o);
+      }
     };
     document.addEventListener("keydown", down);
     return () => document.removeEventListener("keydown", down);
   }, []);
 
   useEffect(() => {
-    if (searchQuery.length > 1) fetcher.load(`/${locale}/${encodeURIComponent(branch)}?q=${searchQuery}`);
+    if (searchQuery.length > 1) {
+      fetcher.load(
+        `/${locale}/${encodeURIComponent(branch)}?q=${encodeURIComponent(searchQuery)}`,
+      );
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, branch, locale]);
+
+  // Branch switcher: use React Router navigation instead of full-page reload
+  const handleBranchChange = (val: string) => {
+    navigate(`/${locale}/${encodeURIComponent(val)}`);
+  };
+
+  // Locale switcher: preserve current path
+  const handleLocaleChange = (val: string) => {
+    navigate(`/${val}/${encodeURIComponent(branch)}/${currentPath}`);
+  };
 
   return (
     <div className="app-layout">
-      <div className={`sidebar-overlay ${sidebarOpen ? 'open' : ''}`} onClick={() => setSidebarOpen(false)} />
-      
-      <Sidebar 
-        locale={locale} branch={branch} branches={branches} treeRoot={treeRoot} 
-        currentPath={currentPath} isRelease={isRelease} user={user}
-        sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} 
-        setSearchOpen={setSearchOpen} 
+      <div
+        className={`sidebar-overlay ${sidebarOpen ? "open" : ""}`}
+        onClick={() => setSidebarOpen(false)}
       />
-      
+      <Sidebar
+        locale={locale}
+        branch={branch}
+        branches={branches}
+        treeRoot={treeRoot}
+        currentPath={currentPath}
+        isRelease={isRelease}
+        user={user}
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        setSearchOpen={setSearchOpen}
+        onBranchChange={handleBranchChange}
+        onLocaleChange={handleLocaleChange}
+        csrfToken={csrfToken}
+      />
       <div className="app-main-wrapper">
-        <Topbar setSidebarOpen={setSidebarOpen} locale={locale} branch={branch} user={user} isRelease={isRelease} />
-        
+        <Topbar
+          setSidebarOpen={setSidebarOpen}
+          locale={locale}
+          branch={branch}
+          user={user}
+          isRelease={isRelease}
+        />
         <main className="app-main" id="scroll-container">
           <div className="content-container">
-            <Outlet />
+            <Outlet context={{ csrfToken }} />
           </div>
         </main>
       </div>
-
-      <SearchCommand 
-        open={searchOpen} onOpenChange={setSearchOpen} 
-        searchQuery={searchQuery} setSearchQuery={setSearchQuery} 
-        searchResults={fetcher.data?.searchResults || []} 
-        isLoading={fetcher.state === "loading"} 
-        locale={locale} branch={branch}
+      <SearchCommand
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        searchResults={fetcher.data?.searchResults ?? []}
+        isLoading={fetcher.state === "loading"}
+        locale={locale}
+        branch={branch}
         treeList={flatTreeList}
       />
     </div>

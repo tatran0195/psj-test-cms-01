@@ -1,9 +1,11 @@
 import { getFile } from "../cms.server";
+import { validateParams, LocaleSchema, BranchNameSchema, FilePathSchema } from "../lib/validation.js";
 
 export async function loader({ params }: any) {
-  const branchName = decodeURIComponent(params.branch as string);
-  const locale = params.locale as string;
-  const path = `${locale}/assets/${params["*"]}`;
+  const branchName = validateParams(BranchNameSchema, decodeURIComponent(params.branch as string));
+  const locale = validateParams(LocaleSchema, params.locale);
+  const pathSuffix = validateParams(FilePathSchema, params["*"]);
+  const path = `${locale}/assets/${pathSuffix}`;
 
   const file = getFile(branchName, path);
   if (!file) {

@@ -11,9 +11,9 @@ export async function loader() {
 
 export default function Index() {
   return (
-    <div className="container mx-auto p-12">
+    <div className="flex items-center justify-center h-screen">
       <h1 className="text-2xl font-bold">CMS Loading...</h1>
-      <p>No branches found in the database.</p>
+      <p className="text-muted-foreground">No branches found in the database.</p>
     </div>
   );
 }

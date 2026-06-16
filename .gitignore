@@ -6,4 +6,13 @@
 /.react-router/
 /build/
 
-/tmp
+# SQLite databases (never commit live DB files)
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+tmp/
+dist/
+dist-electron/
+coverage/

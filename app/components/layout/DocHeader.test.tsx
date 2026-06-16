@@ -8,14 +8,15 @@ describe("DocHeader Component", () => {
   it("renders breadcrumbs, title and description correctly", () => {
     render(
       <MemoryRouter>
-        <DocHeader 
-          path="general/setup.md" 
-          branch="main" 
-          title="Setup Guide" 
+        <DocHeader
+          path="general/setup.md"
+          branch="main"
+          locale="en"
+          title="Setup Guide"
           description="Learn how to setup the project."
-          isRelease={false} 
-          showHistory={false} 
-          setShowHistory={vi.fn()} 
+          isRelease={false}
+          showHistory={false}
+          setShowHistory={vi.fn()}
         />
       </MemoryRouter>
     );
@@ -32,13 +33,14 @@ describe("DocHeader Component", () => {
   it("hides action buttons when in release mode", () => {
     render(
       <MemoryRouter>
-        <DocHeader 
-          path="test.md" 
-          branch="v1" 
-          title="Title" 
-          isRelease={true} 
-          showHistory={false} 
-          setShowHistory={vi.fn()} 
+        <DocHeader
+          path="test.md"
+          branch="v1"
+          locale="en"
+          title="Title"
+          isRelease={true}
+          showHistory={false}
+          setShowHistory={vi.fn()}
         />
       </MemoryRouter>
     );

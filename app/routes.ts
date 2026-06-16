@@ -2,13 +2,16 @@ import { type RouteConfig, index, route, prefix } from "@react-router/dev/routes
 
 export default [
   index("routes/_index.tsx"),
+  route("health", "routes/health.ts"),
+  route("robots.txt", "routes/robots[.]txt.ts"),
+  route("sitemap.xml", "routes/sitemap[.]xml.ts"),
   route("auth/github", "routes/auth.github.tsx"),
   route("auth/github/callback", "routes/auth.github.callback.tsx"),
   route("auth/logout", "routes/auth.logout.tsx"),
-  
+
   ...prefix("api", [
     route("preview", "routes/api.preview.tsx"),
-    route("webhook/github", "routes/api.webhook.github.tsx")
+    route("webhook/github", "routes/api.webhook.github.tsx"),
   ]),
 
   route(":locale", "routes/$locale.tsx", [

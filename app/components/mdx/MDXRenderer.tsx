@@ -17,32 +17,66 @@ export function MDXRenderer({ htmlAstStr, locale, branch }: MDXRendererProps) {
     versionbadge: VersionBadge,
     deprecatedbadge: DeprecatedBadge,
     property: Property,
-    img: (props: any) => {
+    img: (props: React.ImgHTMLAttributes<HTMLImageElement>) => {
       let src = props.src;
-      if (src && !src.startsWith("http") && !src.startsWith("data:") && !src.startsWith("/") && locale && branch) {
-        const cleanSrc = src.replace(/^\.\//, '');
+      if (
+        src &&
+        !src.startsWith("http") &&
+        !src.startsWith("data:") &&
+        !src.startsWith("/") &&
+        locale &&
+        branch
+      ) {
+        const cleanSrc = src.replace(/^\.\//, "");
         src = `/${locale}/${encodeURIComponent(branch)}/${cleanSrc}`;
       }
       return (
-        <img {...props} src={src} className="rounded-lg border border-border shadow-sm my-6" loading="lazy" />
+        <img
+          {...props}
+          src={src}
+          className="rounded-lg border border-border shadow-sm my-6"
+          loading="lazy"
+          alt={props.alt ?? ""}
+        />
       );
     },
-    a: (props: any) => {
+    a: (props: React.AnchorHTMLAttributes<HTMLAnchorElement>) => {
       let href = props.href;
-      if (href && !href.startsWith("http") && !href.startsWith("mailto:") && !href.startsWith("#") && !href.startsWith("/") && locale && branch) {
-        const cleanHref = href.replace(/^\.\//, '');
+      if (
+        href &&
+        !href.startsWith("http") &&
+        !href.startsWith("mailto:") &&
+        !href.startsWith("#") &&
+        !href.startsWith("/") &&
+        locale &&
+        branch
+      ) {
+        const cleanHref = href.replace(/^\.\//, "");
         href = `/${locale}/${encodeURIComponent(branch)}/${cleanHref}`;
-        return <Link {...props} to={href} className="text-accent hover:underline font-medium" />;
+        return (
+          <Link
+            {...(props as any)}
+            to={href}
+            className="text-accent hover:underline font-medium"
+          />
+        );
       }
-      if (href && href.startsWith("#")) {
-        return <a {...props} href={href} className="text-accent hover:underline font-medium" />;
+      if (href?.startsWith("#")) {
+        return (
+          <a {...props} href={href} className="text-accent hover:underline font-medium" />
+        );
       }
-      return <a {...props} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline font-medium" />;
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+      return (
+        <a
+          {...props}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent hover:underline font-medium"
+        />
+      );
+    },
   }), [locale, branch]);
 
-  // Parse AST back from JSON string
   const ast = useMemo(() => {
     try {
       return JSON.parse(htmlAstStr);
@@ -51,36 +85,37 @@ export function MDXRenderer({ htmlAstStr, locale, branch }: MDXRendererProps) {
     }
   }, [htmlAstStr]);
 
-  // Compile AST to React Elements using rehype-react
-  // Use React.createElement + React.Fragment (SSR-safe, avoids "got: object" from jsx-runtime namespace)
   const content = useMemo(() => {
     if (!ast) return null;
 
-    const hast = ast.hast || ast;
+    const hast = ast.hast ?? ast;
     if (!hast || !hast.type) return null;
 
     try {
       const processor = unified().use(rehypeReact, {
-        Fragment: Fragment,
-        jsx: jsx,
-        jsxs: jsxs,
+        Fragment,
+        jsx,
+        jsxs,
         components: customComponents as any,
       } as any);
 
-      const contentResult = processor.stringify(processor.runSync(hast)) as any;
-      console.log("[MDXRenderer] Validating content type:", typeof contentResult, Object.keys(customComponents).map(k => `${k}:${typeof (customComponents as any)[k]}`));
-      return contentResult;
+      return processor.stringify(processor.runSync(hast)) as React.ReactElement;
     } catch (e) {
-      console.error("[MDXRenderer] Failed to compile HAST:", e);
+      // Silent failure in production — the error boundary above will catch catastrophic cases
+      if (process.env.NODE_ENV !== "production") {
+        console.error("[MDXRenderer] Failed to compile HAST:", e);
+      }
       return null;
     }
   }, [ast, customComponents]);
 
-  if (!content) return <div className="text-muted-foreground text-sm py-8 text-center">Failed to render content.</div>;
+  if (!content) {
+    return (
+      <div className="text-muted-foreground text-sm py-8 text-center">
+        Failed to render content.
+      </div>
+    );
+  }
 
-  return (
-    <div className="markdown-body">
-      {content}
-    </div>
-  );
+  return <div className="markdown-body">{content}</div>;
 }
