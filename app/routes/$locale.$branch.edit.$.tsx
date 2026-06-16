@@ -8,7 +8,7 @@ import {
   useActionData,
   useOutletContext,
 } from "react-router";
-import { getFile, commitChanges } from "../cms.server";
+import { getFile, getFileWithFallback, commitChanges } from "../cms.server";
 import {
   requireUser,
   getOrInitCsrfToken,
@@ -58,8 +58,9 @@ export async function loader({
     decodeURIComponent(params.branch as string),
   );
   const path = `${locale}/${params["*"]}`;
-  const file = getFile(branchName, path);
-  if (!file) throw new Response("Not Found", { status: 404 });
+  const result = getFileWithFallback(branchName, path);
+  if (!result) throw new Response("Not Found", { status: 404 });
+  const file = result.file;
 
   // Lazy CSRF init — do NOT rotate here to avoid concurrent-tab invalidation
   const { csrfToken, session, needsCommit } = await getOrInitCsrfToken(request);

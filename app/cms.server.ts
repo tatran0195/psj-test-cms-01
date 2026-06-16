@@ -224,7 +224,16 @@ export async function processContent(
 // Branch helpers
 // ---------------------------------------------------------------------------
 
-export function getBranches(): any[] {
+/**
+ * Returns all branches.
+ * @param publishedOnly When true, only returns non-draft branches (safe for public readers).
+ */
+export function getBranches(publishedOnly = false): any[] {
+  if (publishedOnly) {
+    return db
+      .prepare("SELECT * FROM branches WHERE is_draft = 0 ORDER BY name ASC")
+      .all() as any[];
+  }
   return db.prepare("SELECT * FROM branches ORDER BY name ASC").all() as any[];
 }
 
@@ -235,19 +244,164 @@ export function getBranchHead(branchName: string): string | null {
   return b ? b.head_version : null;
 }
 
+export function isBranchDraft(branchName: string): boolean {
+  const b = db
+    .prepare("SELECT is_draft FROM branches WHERE name = ?")
+    .get(branchName) as any;
+  return b ? b.is_draft === 1 : false;
+}
+
+/**
+ * Creates a new branch in DRAFT state (is_draft = 1).
+ * Draft branches are not visible to unauthenticated / public readers.
+ */
 export function createBranch(newBranch: string, fromBranch: string): void {
   const baseVersion = getBranchHead(fromBranch);
   if (!baseVersion) throw new Error("Base branch not found");
-  db.prepare("INSERT INTO branches (name, head_version) VALUES (?, ?)").run(
-    newBranch,
-    baseVersion,
-  );
-  logAudit("create_branch", "system", newBranch, `Created from ${fromBranch}`);
+  db.prepare(
+    "INSERT INTO branches (name, head_version, is_draft) VALUES (?, ?, 1)",
+  ).run(newBranch, baseVersion);
+  logAudit("create_branch", "system", newBranch, `Created from ${fromBranch} (draft)`);
 }
 
 export function deleteBranch(branchName: string): void {
   db.prepare("DELETE FROM branches WHERE name = ?").run(branchName);
   logAudit("delete_branch", "system", branchName, "Branch deleted");
+}
+
+// ---------------------------------------------------------------------------
+// publishBranch
+// ---------------------------------------------------------------------------
+
+export interface PublishResult {
+  squashCommitId: string;
+  filesChanged: number;
+  squashMessage: string;
+}
+
+/**
+ * Publishes a draft branch by:
+ *  1. Collecting every file path that differs between the branch base and
+ *     its current HEAD (i.e. all changes made on the branch).
+ *  2. Creating a single "squash" commit that records those changes with a
+ *     uniform, parseable message — perfect for automated release note generation.
+ *  3. Marking the branch as `is_draft = 0` and recording the event in
+ *     `branch_publish_log`.
+ *
+ * The squash commit message format:
+ *   "publish(<branch>): <N> file(s) changed\n\n- path/one.md\n- path/two.md"
+ */
+export async function publishBranch(
+  branchName: string,
+  actor: string,
+  customMessage?: string,
+): Promise<PublishResult> {
+  // 1. Find the "fork point" — the base version the branch was cut from.
+  //    Walk the branch history until we find a commit also reachable from main.
+  const branchHead = getBranchHead(branchName);
+  if (!branchHead) throw new Error(`Branch '${branchName}' not found`);
+
+  const mainHead = getBranchHead("main");
+
+  // Collect all versions in the branch commit chain
+  const branchVersions = db
+    .prepare(
+      `WITH RECURSIVE h(version, parent) AS (
+        SELECT version, parent FROM trees WHERE version = ?
+        UNION ALL
+        SELECT t.version, t.parent FROM trees t JOIN h ON t.version = h.parent
+      ) SELECT version FROM h`,
+    )
+    .all(branchHead) as { version: string }[];
+  const branchVersionSet = new Set(branchVersions.map((r) => r.version));
+
+  // Collect all versions reachable from main
+  const mainVersions = mainHead
+    ? (db
+        .prepare(
+          `WITH RECURSIVE h(version, parent) AS (
+            SELECT version, parent FROM trees WHERE version = ?
+            UNION ALL
+            SELECT t.version, t.parent FROM trees t JOIN h ON t.version = h.parent
+          ) SELECT version FROM h`,
+        )
+        .all(mainHead) as { version: string }[])
+    : [];
+  const mainVersionSet = new Set(mainVersions.map((r) => r.version));
+
+  // Fork point = first version in branch chain that is also in main chain
+  let forkVersion: string | null = null;
+  for (const { version } of branchVersions) {
+    if (mainVersionSet.has(version)) {
+      forkVersion = version;
+      break;
+    }
+  }
+
+  // 2. Determine changed paths: every path touched in branch-only commits
+  //    that is NOT in the fork version's state (or has a different hash).
+  const branchOnlyVersions = branchVersions
+    .map((r) => r.version)
+    .filter((v) => !mainVersionSet.has(v));
+
+  let changedPaths: string[] = [];
+  if (branchOnlyVersions.length > 0) {
+    // All unique paths touched in branch-only commits
+    const placeholders = branchOnlyVersions.map(() => "?").join(", ");
+    const touchedPaths = db
+      .prepare(
+        `SELECT DISTINCT path FROM tree_entries WHERE version IN (${placeholders})`,
+      )
+      .all(...branchOnlyVersions) as { path: string }[];
+    changedPaths = touchedPaths.map((r) => r.path).sort();
+  }
+
+  // 3. Build squash commit message
+  const n = changedPaths.length;
+  const defaultMsg = `publish(${branchName}): ${n} file${n !== 1 ? "s" : ""} changed`;
+  const fileList = changedPaths.map((p) => `- ${p}`).join("\n");
+  const squashMessage = customMessage
+    ? `${customMessage}\n\nFiles changed (${n}):\n${fileList}`
+    : `${defaultMsg}\n\n${fileList}`;
+
+  // 4. Atomic SQLite transaction: write squash commit + mark branch published
+  const squashCommitId = generateCommitId();
+
+  db.exec("BEGIN");
+  try {
+    // Squash commit — parent is the current branch HEAD (keeps history intact)
+    db.prepare(
+      `INSERT INTO trees (version, parent, author, message) VALUES (?, ?, ?, ?)`,
+    ).run(squashCommitId, branchHead, actor, squashMessage);
+
+    // The squash commit itself carries no tree_entries — it's a metadata-only
+    // commit that documents what was changed. The actual files are already
+    // tracked by the branch's previous commits.
+
+    // Update branch HEAD to squash commit and mark as published
+    db.prepare(
+      `UPDATE branches
+       SET head_version = ?, is_draft = 0, published_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE name = ?`,
+    ).run(squashCommitId, branchName);
+
+    // Record in publish log for release note generation
+    db.prepare(
+      `INSERT INTO branch_publish_log (branch, actor, commit_id, message, files_changed)
+       VALUES (?, ?, ?, ?, ?)`,
+    ).run(branchName, actor, squashCommitId, squashMessage, n);
+
+    db.exec("COMMIT");
+  } catch (err) {
+    db.exec("ROLLBACK");
+    logger.error({ err, branch: branchName, actor }, "Publish branch failed — rolled back");
+    throw err;
+  }
+
+  logAudit("publish_branch", actor, branchName, squashMessage);
+  logger.info({ branch: branchName, actor, squashCommitId, filesChanged: n }, "Branch published");
+
+  return { squashCommitId, filesChanged: n, squashMessage };
 }
 
 // ---------------------------------------------------------------------------
@@ -313,6 +467,63 @@ export function getFile(branchName: string, filePath: string): any | null {
       )
       .get(branchName, filePath) as any
   ) ?? null;
+}
+
+/**
+ * Tries to load a file from `branchName`. If not found (file never existed
+ * or was deleted on this branch), walks the commit ancestry to find the
+ * nearest ancestor branch that has the file — providing transparent
+ * content inheritance between branches.
+ *
+ * Returns `{ file, sourceBranch }` where `sourceBranch` equals `branchName`
+ * when the file was found on the requested branch, or the name of the
+ * fallback branch otherwise. Returns `null` when the file doesn't exist
+ * anywhere in the ancestry.
+ *
+ * Algorithm (single SQL round-trip):
+ *   1. Walk the commit history of `branchName` via recursive CTE.
+ *   2. Join each ancestor commit against `branches.head_version` to find
+ *      which branch "owns" that commit as its HEAD.
+ *   3. For each candidate branch (ordered by ancestry depth = closeness),
+ *      check whether the file exists on that branch.
+ *   4. Return the first hit.
+ */
+export function getFileWithFallback(
+  branchName: string,
+  filePath: string,
+): { file: any; sourceBranch: string } | null {
+  // Fast path: file exists on the requested branch
+  const direct = getFile(branchName, filePath);
+  if (direct) return { file: direct, sourceBranch: branchName };
+
+  // Find all branches whose head_version sits somewhere in the ancestry chain,
+  // ordered from closest ancestor (depth 1) to furthest (main).
+  const ancestorBranches = db
+    .prepare(
+      `WITH RECURSIVE history(version, parent, depth) AS (
+        SELECT t.version, t.parent, 0
+        FROM trees t
+        JOIN branches b ON b.head_version = t.version
+        WHERE b.name = ?
+        UNION ALL
+        SELECT t.version, t.parent, h.depth + 1
+        FROM trees t JOIN history h ON t.version = h.parent
+      )
+      SELECT DISTINCT b.name, MIN(h.depth) AS closeness
+      FROM history h
+      JOIN branches b ON b.head_version = h.version
+      WHERE b.name != ?
+      GROUP BY b.name
+      ORDER BY closeness ASC`,
+    )
+    .all(branchName, branchName) as { name: string; closeness: number }[];
+
+  for (const { name } of ancestorBranches) {
+    const file = getFile(name, filePath);
+    if (file) return { file, sourceBranch: name };
+  }
+
+  return null;
 }
 
 /**

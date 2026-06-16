@@ -105,6 +105,45 @@ export const migrations: Migration[] = [
       db.exec(`DROP TABLE IF EXISTS blobs_fts;`);
     },
   },
+  {
+    id: 6,
+    name: "add_branch_draft_and_publish_log",
+    up(db) {
+      // is_draft: 1 = draft (new branches only), 0 = published
+      db.exec(`
+        ALTER TABLE branches ADD COLUMN is_draft INTEGER NOT NULL DEFAULT 1;
+        ALTER TABLE branches ADD COLUMN published_at DATETIME;
+
+        -- All pre-existing branches were public before this feature — mark them published.
+        UPDATE branches SET is_draft = 0;
+
+        -- Records each publish event with the squashed commit message
+        -- so it can be used to auto-generate release notes later.
+        CREATE TABLE IF NOT EXISTS branch_publish_log (
+          id            INTEGER PRIMARY KEY AUTOINCREMENT,
+          branch        TEXT NOT NULL,
+          actor         TEXT NOT NULL,
+          commit_id     TEXT REFERENCES trees(version),
+          message       TEXT,
+          files_changed INTEGER DEFAULT 0,
+          published_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_publish_log_branch ON branch_publish_log(branch);
+        CREATE INDEX IF NOT EXISTS idx_publish_log_published_at ON branch_publish_log(published_at);
+      `);
+    },
+  },
+  {
+    id: 7,
+    name: "fix_existing_branches_not_draft",
+    up(db) {
+      // Corrective migration: migration 6 originally only un-drafted 'main'.
+      // Any database that had migration 6 applied with the old WHERE clause
+      // may have non-main branches incorrectly locked as is_draft = 1.
+      // Safe to run again — existing published branches stay published.
+      db.exec(`UPDATE branches SET is_draft = 0 WHERE is_draft = 1;`);
+    },
+  },
 ];
 
 export function runMigrations(db: DatabaseSync) {
@@ -121,7 +160,9 @@ export function runMigrations(db: DatabaseSync) {
     const rows = db
       .prepare("SELECT id FROM migrations_meta")
       .all() as { id: number }[];
-    rows.forEach((r) => applied.add(r.id));
+    for (const r of rows) {
+      applied.add(r.id);
+    }
   } catch {
     // Very old db without the table — will be created above next run
   }

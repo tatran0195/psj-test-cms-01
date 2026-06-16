@@ -1,24 +1,25 @@
-import React, { useState } from "react";
-import { Link, Form, useSubmit } from "react-router";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import * as Select from "@radix-ui/react-select";
 import {
+  AlertTriangle,
+  BookOpen,
+  Check,
   ChevronRight,
+  FileImage,
   FileText,
   Folder,
-  BookOpen,
   GitBranch,
-  Search,
-  User,
-  LogOut,
-  FileImage,
-  Check,
-  X,
   Globe,
-  Trash2,
+  LogOut,
   Plus,
-  AlertTriangle,
+  Rocket,
+  Search,
+  Trash2,
+  User,
+  X,
 } from "lucide-react";
+import { useState } from "react";
+import { Form, Link, useSubmit } from "react-router";
 
 // ---------------------------------------------------------------------------
 // Inline modal (replaces window.prompt / window.confirm)
@@ -28,7 +29,8 @@ type ModalState =
   | { type: "none" }
   | { type: "createFile"; folderPath: string }
   | { type: "deleteFile"; filePath: string }
-  | { type: "deleteBranch"; branchName: string };
+  | { type: "deleteBranch"; branchName: string }
+  | { type: "publishBranch"; branchName: string };
 
 function Modal({
   state,
@@ -63,7 +65,6 @@ function Modal({
               </code>
             </p>
             <input
-              autoFocus
               type="text"
               placeholder="e.g. new-doc.md"
               value={inputValue}
@@ -137,6 +138,44 @@ function Modal({
                 onClick={() => onConfirm()}
               >
                 Delete branch
+              </button>
+            </div>
+          </>
+        )}
+
+        {state.type === "publishBranch" && (
+          <>
+            <div className="flex items-center gap-2 text-emerald-600 mb-2">
+              <Rocket size={20} />
+              <h2 className="font-bold text-lg">Publish branch?</h2>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Publishing{" "}
+              <code className="text-xs bg-muted px-1 rounded">{state.branchName}</code>{" "}
+              will make it visible to all users. All commits will be squashed into a
+              single release entry for changelog generation.
+            </p>
+            <input
+              type="text"
+              placeholder="Release message (optional, e.g. v2.1.0 — API updates)"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") onConfirm(inputValue);
+                if (e.key === "Escape") onCancel();
+              }}
+              className="input w-full mb-4"
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" className="btn-ghost px-4 py-2" onClick={onCancel}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 flex items-center gap-2"
+                onClick={() => onConfirm(inputValue || undefined)}
+              >
+                <Rocket size={14} /> Publish
               </button>
             </div>
           </>
@@ -277,6 +316,7 @@ interface SidebarProps {
   treeRoot: any;
   currentPath: string;
   isRelease: boolean;
+  isDraft: boolean;
   user: any;
   sidebarOpen: boolean;
   setSidebarOpen: (val: boolean) => void;
@@ -298,6 +338,7 @@ export function Sidebar({
   treeRoot,
   currentPath,
   isRelease,
+  isDraft,
   user,
   sidebarOpen,
   setSidebarOpen,
@@ -325,6 +366,10 @@ export function Sidebar({
     setModal({ type: "deleteBranch", branchName: branch });
   };
 
+  const handlePublishBranch = () => {
+    setModal({ type: "publishBranch", branchName: branch });
+  };
+
   const handleModalConfirm = (value?: string) => {
     if (modal.type === "createFile") {
       let name = (value ?? "").trim();
@@ -347,6 +392,13 @@ export function Sidebar({
       fd.append("_action", "deleteBranch");
       fd.append("csrf_token", csrfToken);
       fd.append("branchToDelete", modal.branchName);
+      submit(fd, { method: "post" });
+    } else if (modal.type === "publishBranch") {
+      const fd = new FormData();
+      fd.append("_action", "publishBranch");
+      fd.append("csrf_token", csrfToken);
+      fd.append("branchToPublish", modal.branchName);
+      if (value) fd.append("releaseMessage", value);
       submit(fd, { method: "post" });
     }
     setModal({ type: "none" });
@@ -387,6 +439,23 @@ export function Sidebar({
                     <div className="flex items-center gap-1.5 overflow-hidden">
                       <GitBranch size={14} className="text-muted shrink-0" />
                       <span className="truncate">{branch}</span>
+                      {isDraft && (
+                        <span
+                          style={{
+                            fontSize: "9px",
+                            fontWeight: 700,
+                            letterSpacing: "0.05em",
+                            padding: "1px 5px",
+                            borderRadius: 4,
+                            background: "rgba(234,179,8,0.15)",
+                            color: "#ca8a04",
+                            border: "1px solid rgba(234,179,8,0.4)",
+                            lineHeight: 1.4,
+                          }}
+                        >
+                          DRAFT
+                        </span>
+                      )}
                     </div>
                     <Select.Icon>
                       <ChevronRight
@@ -422,15 +491,29 @@ export function Sidebar({
 
                 {/* Delete branch button — triggers modal */}
                 {branch !== "main" && user && (
-                  <button
-                    type="button"
-                    className="btn-ghost p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
-                    title={`Delete branch ${branch}`}
-                    aria-label={`Delete branch ${branch}`}
-                    onClick={handleDeleteBranch}
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <>
+                    {/* Publish button — only shown for draft branches */}
+                    {isDraft && (
+                      <button
+                        type="button"
+                        className="btn-ghost p-1.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded"
+                        title={`Publish branch ${branch}`}
+                        aria-label={`Publish branch ${branch}`}
+                        onClick={handlePublishBranch}
+                      >
+                        <Rocket size={14} />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-ghost p-1.5 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                      title={`Delete branch ${branch}`}
+                      aria-label={`Delete branch ${branch}`}
+                      onClick={handleDeleteBranch}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </>
                 )}
               </>
             ) : (

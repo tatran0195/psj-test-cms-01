@@ -1,7 +1,20 @@
 import { createCookieSessionStorage } from "react-router";
 import crypto from "crypto";
 
-let _sessionStorage: ReturnType<typeof createCookieSessionStorage> | null = null;
+export interface UserSession {
+  id: string;
+  username: string;
+  avatar: string;
+  token?: string;
+}
+
+/** All keys stored in the encrypted session cookie. */
+interface SessionData {
+  user: UserSession;
+  csrf_token: string;
+}
+
+let _sessionStorage: ReturnType<typeof createCookieSessionStorage<SessionData>> | null = null;
 
 function getSessionStorage() {
   if (_sessionStorage) return _sessionStorage;
@@ -14,7 +27,7 @@ function getSessionStorage() {
     );
   }
 
-  _sessionStorage = createCookieSessionStorage({
+  _sessionStorage = createCookieSessionStorage<SessionData>({
     cookie: {
       name: "__session",
       sameSite: "lax",
@@ -29,34 +42,25 @@ function getSessionStorage() {
   return _sessionStorage;
 }
 
-export const sessionStorage = new Proxy(
-  {} as ReturnType<typeof createCookieSessionStorage>,
-  {
-    get(_, prop: string | symbol) {
-      const storage = getSessionStorage();
-      return Reflect.get(storage, prop);
-    },
-  },
-);
+type AppSessionStorage = ReturnType<typeof createCookieSessionStorage<SessionData>>;
 
-export const { getSession, commitSession, destroySession } = {
-  get getSession() {
-    return getSessionStorage().getSession;
+export const sessionStorage = new Proxy({} as AppSessionStorage, {
+  get(_, prop: string | symbol) {
+    const storage = getSessionStorage();
+    return Reflect.get(storage, prop);
   },
-  get commitSession() {
-    return getSessionStorage().commitSession;
-  },
-  get destroySession() {
-    return getSessionStorage().destroySession;
-  },
-};
+});
 
-export interface UserSession {
-  id: string;
-  username: string;
-  avatar: string;
-  token?: string;
-}
+export const getSession: AppSessionStorage["getSession"] = (cookieHeader) =>
+  getSessionStorage().getSession(cookieHeader);
+
+export const commitSession: AppSessionStorage["commitSession"] = (...args) =>
+  getSessionStorage().commitSession(...args);
+
+export const destroySession: AppSessionStorage["destroySession"] = (...args) =>
+  getSessionStorage().destroySession(...args);
+
+
 
 export async function getUser(request: Request): Promise<UserSession | null> {
   const session = await getSession(request.headers.get("Cookie"));
@@ -108,7 +112,7 @@ export function generateCsrfToken(): string {
  */
 export async function getOrInitCsrfToken(
   request: Request,
-): Promise<{ csrfToken: string; session: ReturnType<Awaited<ReturnType<typeof getSession>>>; needsCommit: boolean }> {
+): Promise<{ csrfToken: string; session: Awaited<ReturnType<typeof getSession>>; needsCommit: boolean }> {
   const session = await getSession(request.headers.get("Cookie"));
   const existing: string | undefined = session.get("csrf_token");
   if (existing) {

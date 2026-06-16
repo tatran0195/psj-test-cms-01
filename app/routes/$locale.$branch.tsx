@@ -1,3 +1,5 @@
+/** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
+/** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
 import {
   Outlet,
   useLoaderData,
@@ -12,8 +14,10 @@ import {
   getBranches,
   search,
   getBranchHead,
+  isBranchDraft,
   createBranch,
   deleteBranch,
+  publishBranch,
   commitChanges,
 } from "../cms.server";
 import {
@@ -33,6 +37,7 @@ import {
   validateParams,
   CreateBranchSchema,
   DeleteBranchSchema,
+  PublishBranchSchema,
   CreateFileSchema,
   DeleteFileSchema,
   SearchQuerySchema,
@@ -99,6 +104,29 @@ export async function action({ request, params }: ActionFunctionArgs) {
       "Branch deleted",
     );
     return redirect(`/${locale}/main`, {
+      headers: { "Set-Cookie": newCsrfCookie },
+    });
+  }
+
+  if (actionType === "publishBranch") {
+    const data = validateParams(PublishBranchSchema, raw);
+    const user = await requireUser(request);
+    const result = await publishBranch(
+      data.branchToPublish,
+      user.username,
+      data.releaseMessage,
+    );
+    logger.info(
+      {
+        action: "publishBranch",
+        branch: data.branchToPublish,
+        squashCommitId: result.squashCommitId,
+        filesChanged: result.filesChanged,
+        ip: clientIp,
+      },
+      "Branch published",
+    );
+    return redirect(`/${locale}/${encodeURIComponent(data.branchToPublish)}`, {
       headers: { "Set-Cookie": newCsrfCookie },
     });
   }
@@ -195,6 +223,7 @@ export interface BranchLoaderData {
   treeRoot: any;
   user: any;
   isRelease: boolean;
+  isDraft: boolean;
   csrfToken: string;
   searchResults?: any[];
 }
@@ -214,6 +243,16 @@ export async function loader({
   const headVersion = getBranchHead(branchName);
   if (!headVersion) throw new Response("Branch Not Found", { status: 404 });
 
+  const user = await getUser(request);
+  const isDraft = isBranchDraft(branchName);
+
+  // Draft branches require authentication — redirect to login instead of 404
+  // so users aren't permanently locked out when all branches are drafts.
+  if (isDraft && !user) {
+    const returnTo = new URL(request.url).pathname;
+    throw redirect(`/auth/github?returnTo=${encodeURIComponent(returnTo)}`);
+  }
+
   if (q !== null) {
     const validated = validateParams(SearchQuerySchema, { q });
     const results = validated.q ? search(branchName, locale, validated.q) : [];
@@ -223,8 +262,9 @@ export async function loader({
   }
 
   const branches = getBranches();
+  // Anonymous users only see published (non-draft) branches in the switcher
+  const visibleBranches = user ? branches : branches.filter((b: any) => !b.is_draft);
   const treeList = getTree(branchName, locale);
-  const user = await getUser(request);
   const isRelease = process.env.IS_CLIENT_RELEASE === "true";
 
   // Lazy CSRF init: read existing token from session; generate only if absent.
@@ -254,10 +294,11 @@ export async function loader({
   const data: BranchLoaderData = {
     locale,
     branch: branchName,
-    branches,
+    branches: visibleBranches,
     treeRoot,
     user,
     isRelease,
+    isDraft,
     csrfToken,
   };
 
@@ -274,7 +315,7 @@ export async function loader({
 // ---------------------------------------------------------------------------
 
 export default function BranchLayout() {
-  const { locale, branch, branches, treeRoot, user, isRelease, csrfToken } =
+  const { locale, branch, branches, treeRoot, user, isRelease, isDraft, csrfToken } =
     useLoaderData<BranchLoaderData>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -315,13 +356,13 @@ export default function BranchLayout() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     if (searchQuery.length > 1) {
       fetcher.load(
         `/${locale}/${encodeURIComponent(branch)}?q=${encodeURIComponent(searchQuery)}`,
       );
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, branch, locale]);
 
   // Branch switcher: use React Router navigation instead of full-page reload
@@ -347,6 +388,7 @@ export default function BranchLayout() {
         treeRoot={treeRoot}
         currentPath={currentPath}
         isRelease={isRelease}
+        isDraft={isDraft}
         user={user}
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}

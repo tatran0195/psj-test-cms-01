@@ -15,6 +15,12 @@ export const DeleteBranchSchema = z.object({
   branchToDelete: BranchNameSchema,
 });
 
+export const PublishBranchSchema = z.object({
+  _action: z.literal("publishBranch"),
+  branchToPublish: BranchNameSchema,
+  releaseMessage: z.string().max(500).optional(),
+});
+
 export const CreateFileSchema = z.object({
   _action: z.literal("createFile"),
   path: FilePathSchema,

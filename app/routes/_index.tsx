@@ -1,10 +1,13 @@
 import { redirect } from "react-router";
 import { getBranches } from "../cms.server";
 
-export async function loader() {
+export async function loader({ request }: import("react-router").LoaderFunctionArgs) {
   const branches = getBranches();
   if (branches.length > 0) {
-    throw redirect(`/en/${encodeURIComponent(branches[0].name)}`);
+    // Prefer a published branch for the initial redirect; fall back to the
+    // first branch (which will trigger the auth redirect if it's a draft).
+    const published = branches.find((b: any) => !b.is_draft) ?? branches[0];
+    throw redirect(`/en/${encodeURIComponent(published.name)}`);
   }
   return { branches };
 }

@@ -6,7 +6,7 @@ import {
 } from "react-router";
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { getFileHistory, getFile, getAdjacentFiles } from "../cms.server";
+import { getFileHistory, getFileWithFallback, getAdjacentFiles } from "../cms.server";
 import { motion, AnimatePresence } from "framer-motion";
 import type { LoaderFunctionArgs } from "react-router";
 import { RevisionHistory } from "../components/RevisionHistory";
@@ -96,8 +96,9 @@ export async function loader({ params }: LoaderFunctionArgs) {
   const filePath = `${locale}/${params["*"]}`;
   validateParams(FilePathSchema, params["*"]);
 
-  const file = getFile(branchName, filePath);
-  if (!file) throw new Response("Not Found", { status: 404 });
+  const result = getFileWithFallback(branchName, filePath);
+  if (!result) throw new Response("Not Found", { status: 404 });
+  const { file, sourceBranch } = result;
 
   const isRelease = process.env.IS_CLIENT_RELEASE === "true";
   const history = isRelease ? [] : getFileHistory(branchName, filePath);
@@ -142,6 +143,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     path: params["*"] as string,
     locale,
     branch: branchName,
+    sourceBranch,
     isRelease,
     isBinary: file.mime_type !== "text/markdown",
     mimeType: file.mime_type,
@@ -162,6 +164,7 @@ export default function FileView() {
     path,
     locale,
     branch,
+    sourceBranch,
     isRelease,
     isBinary,
     mimeType,
@@ -220,6 +223,36 @@ export default function FileView() {
       className="flex flex-col xl:flex-row gap-10 items-start mx-[-48px] px-8 md:px-12"
     >
       <div className="flex-1 min-w-0 w-full">
+        {sourceBranch !== branch && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "8px 14px",
+              marginBottom: 16,
+              borderRadius: 8,
+              background: "rgba(234,179,8,0.08)",
+              border: "1px solid rgba(234,179,8,0.3)",
+              fontSize: "0.8rem",
+              color: "#a16207",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            This file doesn&apos;t exist on{" "}
+            <strong style={{ fontWeight: 600 }}>{branch}</strong>{" "}
+            yet — showing inherited content from{" "}
+            <a
+              href={`/${locale}/${encodeURIComponent(sourceBranch)}/${path}`}
+              style={{ fontWeight: 600, textDecoration: "underline", color: "inherit" }}
+            >
+              {sourceBranch}
+            </a>.
+          </div>
+        )}
+
         <DocHeader
           path={path}
           branch={branch}
