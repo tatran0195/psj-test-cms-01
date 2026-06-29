@@ -2,11 +2,9 @@ import fs from "fs";
 import path from "path";
 import { DatabaseSync } from "node:sqlite";
 
-const branchToRelease = process.argv[2] || "main";
+let branchToRelease = process.argv[2];
 const sourceDbPath = path.resolve(process.cwd(), "cms.db");
 const targetDbPath = path.resolve(process.cwd(), "release.db");
-
-console.log(`Starting Client Release Build for branch: ${branchToRelease}`);
 
 // 1. Copy DB
 if (fs.existsSync(targetDbPath)) {
@@ -16,6 +14,18 @@ fs.copyFileSync(sourceDbPath, targetDbPath);
 console.log(`- Cloned cms.db to release.db`);
 
 const db = new DatabaseSync(targetDbPath);
+
+if (!branchToRelease) {
+  const branches = db.prepare("SELECT name FROM branches").all() as {name: string}[];
+  if (branches.length === 0) {
+    console.error("❌ No branches found in DB");
+    process.exit(1);
+  }
+  const hasMain = branches.find(b => b.name === "main");
+  branchToRelease = hasMain ? "main" : branches[0].name;
+}
+
+console.log(`Starting Client Release Build for branch: ${branchToRelease}`);
 
 try {
   db.exec("BEGIN TRANSACTION");

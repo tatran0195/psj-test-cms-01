@@ -1,52 +1,54 @@
 /** biome-ignore-all lint/a11y/useKeyWithClickEvents: <explanation> */
 /** biome-ignore-all lint/a11y/noStaticElementInteractions: <explanation> */
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ActionFunctionArgs, LoaderFunctionArgs } from "react-router";
 import {
   Outlet,
+  redirect,
+  useFetcher,
   useLoaderData,
   useLocation,
-  useFetcher,
   useNavigate,
-  redirect,
 } from "react-router";
-import { useState, useEffect, useMemo } from "react";
 import {
-  getTree,
-  getBranches,
-  search,
-  getBranchHead,
-  isBranchDraft,
+  commitChanges,
   createBranch,
   deleteBranch,
+  getBranches,
+  getBranchHead,
+  getFilesForPaths,
+  getTree,
+  isBranchDraft,
   publishBranch,
-  commitChanges,
+  search,
+  searchAllBranches,
 } from "../cms.server";
+import { SearchCommand } from "../components/layout/SearchCommand";
+import { Sidebar } from "../components/layout/Sidebar";
+import { Topbar } from "../components/layout/Topbar";
+import { pushToGitHub } from "../github.server";
+import { logger } from "../lib/logger.js";
+import { ACTION_RATE_LIMIT, checkRateLimit } from "../lib/rate-limit.server.js";
 import {
-  getUser,
-  requireUser,
-  requireAdmin,
-  getOrInitCsrfToken,
+  BranchNameSchema,
+  CreateBranchSchema,
+  CreateFileSchema,
+  DeleteBranchSchema,
+  DeleteFileSchema,
+  LocaleSchema,
+  PublishBranchSchema,
+  SearchQuerySchema,
+  validateParams,
+} from "../lib/validation.js";
+import {
   commitSession,
+  getOrInitCsrfToken,
   getSession,
+  getUser,
+  requireAdmin,
+  requireUser,
   rotateCsrfToken,
 } from "../session.server";
-import { pushToGitHub } from "../github.server";
-import { Sidebar } from "../components/layout/Sidebar";
-import { SearchCommand } from "../components/layout/SearchCommand";
-import { Topbar } from "../components/layout/Topbar";
-import {
-  validateParams,
-  CreateBranchSchema,
-  DeleteBranchSchema,
-  PublishBranchSchema,
-  CreateFileSchema,
-  DeleteFileSchema,
-  SearchQuerySchema,
-  LocaleSchema,
-  BranchNameSchema,
-} from "../lib/validation.js";
-import { logger } from "../lib/logger.js";
-import { checkRateLimit, ACTION_RATE_LIMIT } from "../lib/rate-limit.server.js";
-import type { LoaderFunctionArgs, ActionFunctionArgs } from "react-router";
 
 // ---------------------------------------------------------------------------
 // Action
@@ -116,6 +118,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
       user.username,
       data.releaseMessage,
     );
+
+    // Push changed files to GitHub so the remote branch reflects the publish (fire-and-forget)
+    if (user.token && process.env.GITHUB_REPO && result.changedPaths.length > 0) {
+      const filesForGitHub = getFilesForPaths(data.branchToPublish, result.changedPaths);
+      pushToGitHub(
+        user.token,
+        process.env.GITHUB_REPO,
+        data.branchToPublish,
+        result.squashMessage,
+        filesForGitHub,
+      ).catch((e: unknown) =>
+        logger.error({ err: e, user: user.username, branch: data.branchToPublish }, "GitHub push failed during publishBranch"),
+      );
+    }
+
     logger.info(
       {
         action: "publishBranch",
@@ -226,7 +243,10 @@ export interface BranchLoaderData {
   isDraft: boolean;
   csrfToken: string;
   searchResults?: any[];
+  searchHasMore?: boolean;
 }
+
+const PAGE_SIZE = 20;
 
 export async function loader({
   params,
@@ -239,6 +259,7 @@ export async function loader({
   );
   const url = new URL(request.url);
   const q = url.searchParams.get("q");
+  const searchOffset = Math.max(0, parseInt(url.searchParams.get("offset") || "0", 10));
 
   const headVersion = getBranchHead(branchName);
   if (!headVersion) throw new Response("Branch Not Found", { status: 404 });
@@ -253,12 +274,27 @@ export async function loader({
     throw redirect(`/auth/github?returnTo=${encodeURIComponent(returnTo)}`);
   }
 
+  let searchResults: any[] = [];
+  let searchHasMore = false;
   if (q !== null) {
     const validated = validateParams(SearchQuerySchema, { q });
-    const results = validated.q ? search(branchName, locale, validated.q) : [];
-    return Response.json({ searchResults: results }, {
-      headers: { "Cache-Control": "public, max-age=30" },
-    }) as unknown as BranchLoaderData;
+    if (validated.q) {
+      let raw: any[];
+      if (user) {
+        // Authenticated users: search across all branches (including drafts),
+        // with the current branch ranked first.
+        const allBranches = getBranches();
+        const otherBranches = allBranches
+          .map((b: any) => b.name as string)
+          .filter((n: string) => n !== branchName);
+        raw = searchAllBranches(locale, validated.q, [branchName, ...otherBranches], searchOffset, PAGE_SIZE + 1);
+      } else {
+        raw = search(branchName, locale, validated.q, searchOffset, PAGE_SIZE + 1);
+      }
+      // If we got PAGE_SIZE+1 rows, there are more results available
+      searchHasMore = raw.length > PAGE_SIZE;
+      searchResults = searchHasMore ? raw.slice(0, PAGE_SIZE) : raw;
+    }
   }
 
   const branches = getBranches();
@@ -300,6 +336,8 @@ export async function loader({
     isRelease,
     isDraft,
     csrfToken,
+    searchResults,
+    searchHasMore,
   };
 
   // Only commit the session when we just initialised the token
@@ -324,26 +362,13 @@ export default function BranchLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [allSearchResults, setAllSearchResults] = useState<any[]>([]);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const isLoadMoreRef = useRef(false);
 
   const matchRegex = new RegExp(`^/${locale}/[^/]+/(edit/|assets/)?(.+)$`);
   const currentPathMatch = location.pathname.match(matchRegex);
   const currentPath = currentPathMatch ? currentPathMatch[2] : "";
-
-  const flatTreeList = useMemo(() => {
-    const list: any[] = [];
-    const traverse = (node: any) => {
-      if (node.isFile) {
-        list.push({
-          title: node.name,
-          path: `${locale}/${node.path}`,
-          snippet: "Matched from document title (Fuzzy search)",
-        });
-      }
-      Object.values(node.children ?? {}).forEach(traverse);
-    };
-    traverse(treeRoot);
-    return list;
-  }, [treeRoot, locale]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -356,14 +381,44 @@ export default function BranchLayout() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // Fire search when query changes (1+ chars)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
   useEffect(() => {
-    if (searchQuery.length > 1) {
+    isLoadMoreRef.current = false;
+    if (searchQuery.length >= 1) {
+      setAllSearchResults([]);
+      setSearchHasMore(false);
       fetcher.load(
-        `/${locale}/${encodeURIComponent(branch)}?q=${encodeURIComponent(searchQuery)}`,
+        `/${locale}/${encodeURIComponent(branch)}?q=${encodeURIComponent(searchQuery)}&offset=0`,
       );
+    } else {
+      setAllSearchResults([]);
+      setSearchHasMore(false);
     }
   }, [searchQuery, branch, locale]);
+
+  // Accumulate results (replace on new query, append on load more)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
+  useEffect(() => {
+    if (fetcher.data?.searchResults !== undefined) {
+      const incoming = fetcher.data.searchResults as any[];
+      if (isLoadMoreRef.current) {
+        setAllSearchResults((prev) => [...prev, ...incoming]);
+        isLoadMoreRef.current = false;
+      } else {
+        setAllSearchResults(incoming);
+      }
+      setSearchHasMore(fetcher.data.searchHasMore ?? false);
+    }
+  }, [fetcher.data]);
+
+  const handleLoadMore = () => {
+    if (fetcher.state !== "idle" || !searchHasMore) return;
+    isLoadMoreRef.current = true;
+    fetcher.load(
+      `/${locale}/${encodeURIComponent(branch)}?q=${encodeURIComponent(searchQuery)}&offset=${allSearchResults.length}`,
+    );
+  };
 
   // Branch switcher: use React Router navigation instead of full-page reload
   const handleBranchChange = (val: string) => {
@@ -404,6 +459,7 @@ export default function BranchLayout() {
           branch={branch}
           user={user}
           isRelease={isRelease}
+          csrfToken={csrfToken}
         />
         <main className="app-main" id="scroll-container">
           <div className="content-container">
@@ -416,11 +472,13 @@ export default function BranchLayout() {
         onOpenChange={setSearchOpen}
         searchQuery={searchQuery}
         setSearchQuery={setSearchQuery}
-        searchResults={fetcher.data?.searchResults ?? []}
-        isLoading={fetcher.state === "loading"}
+        searchResults={allSearchResults}
+        isLoading={fetcher.state === "loading" && !isLoadMoreRef.current}
+        isLoadingMore={fetcher.state === "loading" && isLoadMoreRef.current}
+        hasMore={searchHasMore}
+        onLoadMore={handleLoadMore}
         locale={locale}
         branch={branch}
-        treeList={flatTreeList}
       />
     </div>
   );

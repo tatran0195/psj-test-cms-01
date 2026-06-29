@@ -277,6 +277,8 @@ export interface PublishResult {
   squashCommitId: string;
   filesChanged: number;
   squashMessage: string;
+  /** Paths of all files that changed on the branch — use to push to GitHub. */
+  changedPaths: string[];
 }
 
 /**
@@ -401,7 +403,7 @@ export async function publishBranch(
   logAudit("publish_branch", actor, branchName, squashMessage);
   logger.info({ branch: branchName, actor, squashCommitId, filesChanged: n }, "Branch published");
 
-  return { squashCommitId, filesChanged: n, squashMessage };
+  return { squashCommitId, filesChanged: n, squashMessage, changedPaths };
 }
 
 // ---------------------------------------------------------------------------
@@ -599,8 +601,133 @@ export function getAdjacentFiles(
 }
 
 // ---------------------------------------------------------------------------
+// File content helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the current effective content of specific file paths on a branch.
+ * Used to push changed files to GitHub after a commit or publish.
+ * Binary files are returned as base64 strings; markdown as UTF-8 strings.
+ */
+export function getFilesForPaths(
+  branchName: string,
+  paths: string[],
+): { path: string; content: string; mime_type: string }[] {
+  if (paths.length === 0) return [];
+  const placeholders = paths.map(() => "?").join(", ");
+  const rows = db
+    .prepare(
+      `${HISTORY_CTE},
+      ranked AS (
+        SELECT te.path, te.hash,
+               ROW_NUMBER() OVER (PARTITION BY te.path ORDER BY h.depth ASC) AS rn
+        FROM tree_entries te
+        JOIN history h ON te.version = h.version
+        WHERE te.path IN (${placeholders})
+      )
+      SELECT r.path, b.raw_content, b.mime_type
+      FROM ranked r
+      JOIN blobs b ON r.hash = b.hash
+      WHERE r.rn = 1 AND r.hash IS NOT NULL`,
+    )
+    .all(branchName, ...paths) as { path: string; raw_content: Buffer | string; mime_type: string }[];
+
+  return rows.map((row) => ({
+    path: row.path,
+    content: Buffer.isBuffer(row.raw_content)
+      ? row.raw_content.toString("base64")
+      : (row.raw_content as string),
+    mime_type: row.mime_type,
+  }));
+}
+
+// ---------------------------------------------------------------------------
 // Search
 // ---------------------------------------------------------------------------
+
+/**
+ * Returns true if the string contains CJK (Chinese, Japanese, Korean) characters.
+ * CJK text has no word boundaries, so trigram-based FTS works best for it.
+ */
+function hasCJK(s: string): boolean {
+  return /[\u3000-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/.test(s);
+}
+
+function getEdits(word: string): string[] {
+  const edits = new Set<string>();
+  // Transpositions (swap adjacent chars)
+  for (let i = 0; i < word.length - 1; i++) {
+    const chars = word.split('');
+    const temp = chars[i];
+    chars[i] = chars[i + 1];
+    chars[i + 1] = temp;
+    edits.add(chars.join(''));
+  }
+  // Deletions (remove 1 char)
+  for (let i = 0; i < word.length; i++) {
+    edits.add(word.slice(0, i) + word.slice(i + 1));
+  }
+  return Array.from(edits);
+}
+
+/**
+ * Builds an FTS5 MATCH query for the trigram tokenizer with multilingual support.
+ *
+ * Trigram indexes every 3-char sequence — optimal for:
+ *   - Japanese/CJK: character-based languages with no word boundaries
+ *   - Latin substring matching: "load" is found by trigrams "loa" + "oad"
+ *
+ * Returns empty string when the query can't be expressed as an FTS MATCH
+ * (e.g. all tokens < 3 chars). The caller then uses a LIKE fallback.
+ *
+ * Query generation strategy:
+ *   CJK >= 3 chars -> generate all 3-char substrings (trigrams) OR-ed
+ *   CJK <  3 chars -> return null (-> LIKE fallback)
+ *   Latin >= 3     -> exact phrase + all trigrams + edit-distance-1 variants
+ *   Latin <  3     -> return null (-> LIKE fallback)
+ */
+function buildFuzzyQuery(query: string): string {
+  const cleanQuery = query.replace(/["*()]/g, ' ').trim();
+  const words = cleanQuery.split(/\s+/).filter(Boolean);
+
+  if (words.length === 0) return '""';
+
+  const fuzzyParts = words.map(word => {
+    const terms = new Set<string>();
+
+    if (hasCJK(word)) {
+      // CJK: generate trigrams. Words < 3 chars -> caller uses LIKE fallback.
+      if (word.length < 3) return null;
+      for (let i = 0; i <= word.length - 3; i++) {
+        terms.add(`"${word.slice(i, i + 3)}"`);
+      }
+    } else {
+      // Latin / mixed: words < 3 chars -> caller uses LIKE fallback.
+      if (word.length < 3) return null;
+      // Exact phrase
+      terms.add(`"${word}"`);
+      // All trigrams from the word
+      for (let i = 0; i <= word.length - 3; i++) {
+        terms.add(`"${word.slice(i, i + 3)}"`);
+      }
+      // Edit-distance-1 variants (handles single typos like "laod" -> "load")
+      if (word.length <= 8) {
+        for (const edit of getEdits(word)) {
+          if (edit.length >= 3) {
+            terms.add(`"${edit}"`);
+          }
+        }
+      }
+    }
+
+    return `(${Array.from(terms).join(' OR ')})`;
+  });
+
+  // Any null part means a token can't be expressed in FTS -> LIKE fallback
+  if (fuzzyParts.some(p => p === null)) return '';
+
+  return fuzzyParts.join(' AND ');
+}
 
 export function search(
   branchName: string,
@@ -611,6 +738,43 @@ export function search(
 ): any[] {
   const safeLimit = Math.max(1, Math.min(limit, 100));
   const safeOffset = Math.max(0, offset);
+  const ftsQuery = buildFuzzyQuery(query);
+
+  // When ftsQuery is empty the query is too short for trigram FTS (< 3 chars
+  // per token, e.g. "lo", "AI", "東京"). Fall back to a case-insensitive LIKE
+  // search directly on the section content. Covers:
+  //   - Short Latin abbreviations: "JS", "AI", "v2"
+  //   - 1-2 char CJK queries: "東", "東京", "検索"
+  if (!ftsQuery) {
+    const likePattern = `%${query.replace(/['"*()%_]/g, ' ').trim()}%`;
+    return db
+      .prepare(
+        `${HISTORY_CTE},
+      ranked AS (
+        SELECT te.path, te.hash,
+               ROW_NUMBER() OVER (PARTITION BY te.path ORDER BY h.depth ASC) AS rn
+        FROM tree_entries te
+        JOIN history h ON te.version = h.version
+        WHERE te.path LIKE ?
+      ),
+      visible AS (
+        SELECT path, hash FROM ranked WHERE rn = 1 AND hash IS NOT NULL
+      )
+      SELECT
+        v.path,
+        b.frontmatter,
+        fts.heading_id,
+        fts.breadcrumb,
+        substr(fts.content, 1, 200) as snippet
+      FROM visible v
+      JOIN blob_sections_fts fts ON v.hash = fts.hash
+      JOIN blobs b ON v.hash = b.hash
+      WHERE (fts.content LIKE ? OR fts.breadcrumb LIKE ?)
+      ORDER BY v.path
+      LIMIT ? OFFSET ?`,
+      )
+      .all(branchName, `${locale}/%`, likePattern, likePattern, safeLimit, safeOffset) as any[];
+  }
 
   return db
     .prepare(
@@ -638,7 +802,37 @@ export function search(
       ORDER BY rank
       LIMIT ? OFFSET ?`,
     )
-    .all(branchName, `${locale}/%`, query, safeLimit, safeOffset) as any[];
+    .all(branchName, `${locale}/%`, ftsQuery, safeLimit, safeOffset) as any[];
+}
+
+
+export function searchAllBranches(
+  locale: string,
+  query: string,
+  branchNames: string[],
+  offset = 0,
+  limit = 20,
+): any[] {
+  const safeLimit = Math.max(1, Math.min(limit, 100));
+  const safeOffset = Math.max(0, offset);
+  const pathOwner = new Map<string, string>();
+  const results: any[] = [];
+
+  for (const branchName of branchNames) {
+    const branchResults = search(branchName, locale, query, 0, safeOffset + safeLimit);
+    for (const r of branchResults) {
+      if (!pathOwner.has(r.path)) {
+        pathOwner.set(r.path, branchName);
+      }
+      // Only include results from the branch that "owns" this path
+      // (the first branch in the list that contains it)
+      if (pathOwner.get(r.path) === branchName) {
+        results.push({ ...r, sourceBranch: branchName });
+      }
+    }
+  }
+
+  return results.slice(safeOffset, safeOffset + safeLimit);
 }
 
 // ---------------------------------------------------------------------------

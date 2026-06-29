@@ -46,18 +46,48 @@ export function meta({ data }: any) {
 
 export function ErrorBoundary() {
   const error = useRouteError();
+  const is404 = isRouteErrorResponse(error) && error.status === 404;
+
   return (
-    <div className="flex flex-col items-center justify-center py-20 text-center">
-      <AlertTriangle size={64} className="text-red-500 mb-6" />
-      <h1 className="text-3xl font-bold mb-2">Oops! Document Error</h1>
-      <p className="text-muted-foreground mb-6 max-w-md">
-        {isRouteErrorResponse(error)
-          ? "This file could not be found in the current branch."
-          : "There was a syntax error compiling this MDX document."}
+    <div className="flex flex-col items-center justify-center py-24 text-center max-w-lg mx-auto px-4">
+      {/* Illustrated number */}
+      <div className="relative mb-8">
+        <div className="text-[120px] font-black leading-none text-foreground/5 select-none">
+          {is404 ? "404" : "Err"}
+        </div>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="flex items-center justify-center w-20 h-20 rounded-2xl bg-red-500/10 border border-red-500/20">
+            <AlertTriangle size={36} className="text-red-500" />
+          </div>
+        </div>
+      </div>
+
+      <h1 className="text-2xl font-extrabold text-foreground mb-3 tracking-tight">
+        {is404 ? "Page not found" : "Document error"}
+      </h1>
+      <p className="text-base text-muted-foreground mb-8 leading-relaxed">
+        {is404
+          ? "This file doesn't exist in the current branch. It may have been moved, deleted, or never created here."
+          : "There was a syntax error compiling this MDX document. Check the source file for malformed code blocks or components."}
       </p>
-      <Link to="/" className="btn">
-        Return to Home
-      </Link>
+
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Link to="." className="btn">
+          Go back
+        </Link>
+        <Link
+          to="/"
+          className="btn-outline px-4 py-2 text-sm"
+        >
+          Home
+        </Link>
+      </div>
+
+      {isRouteErrorResponse(error) && (
+        <p className="mt-8 text-xs text-muted-foreground font-mono">
+          HTTP {error.status} · {error.statusText}
+        </p>
+      )}
     </div>
   );
 }

@@ -1,7 +1,7 @@
+import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import path from "path";
-import { runMigrations } from "./lib/migrations.js";
 import { logger } from "./lib/logger.js";
+import { runMigrations } from "./lib/migrations.js";
 
 const dbPath = path.resolve(process.cwd(), process.env.DB_FILE || "cms.db");
 const db = new DatabaseSync(dbPath);

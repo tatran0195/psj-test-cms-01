@@ -6,9 +6,8 @@ import {
   useSubmit,
   useFetcher,
   useActionData,
-  useOutletContext,
 } from "react-router";
-import { getFile, getFileWithFallback, commitChanges } from "../cms.server";
+import { getFileWithFallback, commitChanges } from "../cms.server";
 import {
   requireUser,
   getOrInitCsrfToken,

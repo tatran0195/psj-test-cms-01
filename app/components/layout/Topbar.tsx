@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Form, useOutletContext } from "react-router";
+import { Form } from "react-router";
 import { Menu, LogOut, User, Sun, Moon } from "lucide-react";
 
 interface TopbarProps {
@@ -8,13 +8,13 @@ interface TopbarProps {
   branch?: string;
   user: any;
   isRelease: boolean;
+  csrfToken: string;
 }
 
 /**
- * The Topbar reads the CSRF token from the outlet context that the branch
- * layout injects — the same token the sidebar and edit forms use.
+ * The Topbar reads the CSRF token from props.
  */
-export function Topbar({ setSidebarOpen, user, isRelease }: TopbarProps) {
+export function Topbar({ setSidebarOpen, user, isRelease, csrfToken }: TopbarProps) {
   const [isDark, setIsDark] = useState(false);
 
   // Sync React state with whatever the anti-FOUC inline script applied to <html>
@@ -29,9 +29,6 @@ export function Topbar({ setSidebarOpen, user, isRelease }: TopbarProps) {
     setIsDark(nowDark);
   };
 
-  // Pull CSRF token from outlet context (set by the branch layout loader)
-  const ctx = useOutletContext<{ csrfToken?: string }>();
-  const csrfToken = ctx?.csrfToken ?? "";
 
   return (
     <header className="app-topbar flex shrink-0 h-14 px-4 items-center justify-between border-b border-border bg-background lg:justify-end">

@@ -144,6 +144,18 @@ export const migrations: Migration[] = [
       db.exec(`UPDATE branches SET is_draft = 0 WHERE is_draft = 1;`);
     },
   },
+  {
+    id: 8,
+    name: "sections_fts_keep_trigram",
+    up(_db) {
+      // No schema change — keeping trigram tokenizer.
+      // Trigram is the right choice for multilingual search:
+      //   - Japanese/CJK: no word boundaries, so trigram indexes every 3-char
+      //     substring — perfect for "東京都" -> matches "東京", etc.
+      //   - Latin text: 3+ char substrings indexed; short 1-2 char queries are
+      //     handled by the LIKE-based fallback path added to search().
+    },
+  },
 ];
 
 export function runMigrations(db: DatabaseSync) {
